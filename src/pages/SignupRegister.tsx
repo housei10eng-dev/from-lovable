@@ -78,6 +78,8 @@ export default function SignupRegister() {
   const totalValue = parseInt(totalFromParams, 10);
 
   const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [isNameLocked, setIsNameLocked] = useState(false);
+  const [lastCnpjLookup, setLastCnpjLookup] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     document: '',
@@ -110,6 +112,62 @@ export default function SignupRegister() {
     }
   }, [documentType, formData.name]);
 
+  useEffect(() => {
+    const digits = formData.document.replace(/\D/g, '');
+    if (digits.length < 14) {
+      setIsNameLocked(false);
+      setLastCnpjLookup(null);
+      return;
+    }
+
+    if (documentType !== 'cnpj') {
+      setIsNameLocked(false);
+      return;
+    }
+
+    setIsNameLocked(true);
+
+    if (digits === lastCnpjLookup) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const fetchCompanyName = async () => {
+      try {
+        const response = await fetch(
+          `https://brasilapi.com.br/api/cnpj/v1/${digits}`,
+          { signal: controller.signal }
+        );
+        if (!response.ok) {
+          throw new Error('Falha ao consultar CNPJ');
+        }
+        const data = (await response.json()) as { razao_social?: string; nome?: string };
+        const companyName = data.razao_social ?? data.nome;
+        if (!companyName) {
+          throw new Error('Razão social não encontrada');
+        }
+        setLastCnpjLookup(digits);
+        setFormData((prev) => ({ ...prev, name: companyName }));
+        if (formErrors.name) {
+          setFormErrors((prev) => ({ ...prev, name: undefined }));
+        }
+      } catch (error) {
+        if ((error as Error).name === 'AbortError') {
+          return;
+        }
+        toast({
+          title: 'Não foi possível preencher a razão social',
+          description: 'Tente novamente após conferir o CNPJ informado.',
+          variant: 'destructive',
+        });
+      }
+    };
+
+    fetchCompanyName();
+
+    return () => controller.abort();
+  }, [documentType, formData.document, formErrors.name, lastCnpjLookup, toast]);
+
   const handleFieldChange = (field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (formErrors[field as keyof FormErrors]) {
@@ -139,6 +197,10 @@ export default function SignupRegister() {
   const handleDocumentChange = (value: string) => {
     const formatted = formatDocument(value);
     setFormData((prev) => ({ ...prev, document: formatted }));
+    const digits = formatted.replace(/\D/g, '');
+    if (digits.length < 14) {
+      setIsNameLocked(false);
+    }
     if (formErrors.document) {
       setFormErrors((prev) => ({ ...prev, document: undefined }));
     }
@@ -233,6 +295,8 @@ export default function SignupRegister() {
         cep: '',
       },
     }));
+    setIsNameLocked(false);
+    setLastCnpjLookup(null);
     setFormErrors({});
   };
 
@@ -384,6 +448,7 @@ export default function SignupRegister() {
                     value={formData.name}
                     onChange={(event) => handleFieldChange('name', event.target.value)}
                     placeholder="Nome completo"
+                    disabled={isNameLocked}
                     className={formErrors.name ? 'border-destructive' : ''}
                   />
                   {formErrors.name && (
