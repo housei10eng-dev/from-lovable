@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { FormEvent } from "react";
 import {
   Card,
@@ -48,6 +48,7 @@ import {
   Trash2,
   Phone,
   Mail,
+  Loader2,
 } from "lucide-react";
 
 import {
@@ -56,8 +57,9 @@ import {
   formatDocument,
   formatPhone,
 } from "@/lib/validation/clientSchema";
-import { loadStoredClients, saveStoredClients } from "@/lib/clientsStore";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 type ClientStatus = "active" | "pending" | "inactive";
 type CommercialStatus = "active" | "negotiation" | "pending" | "inactive";
@@ -71,13 +73,11 @@ type Client = {
   email: string;
   phone: string;
   document: string;
-
   responsible: string;
   planType: PlanType;
   plan: Plan;
   commercialStatus: CommercialStatus;
   paymentPreference: PaymentPreference;
-
   address: {
     state: string;
     street: string;
@@ -87,135 +87,10 @@ type Client = {
     country: string;
     cep: string;
   };
-
   status: ClientStatus;
   notes: string;
   createdAt: string;
 };
-
-// Demo clients
-const initialClients: Client[] = [
-  {
-    id: "1",
-    name: "Maria Silva",
-    email: "maria@empresa.com",
-    phone: "(11) 99999-1111",
-    document: "123.456.789-00",
-    responsible: "Maria Silva",
-    planType: "monthly",
-    plan: "Pro",
-    commercialStatus: "active",
-    paymentPreference: "CARTAO",
-    address: {
-      state: "SP",
-      street: "Av. Paulista",
-      number: "1000",
-      neighborhood: "Bela Vista",
-      city: "São Paulo",
-      country: "Brasil",
-      cep: "01310-100",
-    },
-    status: "active",
-    notes: "Cliente VIP",
-    createdAt: "2025-11-15",
-  },
-  {
-    id: "2",
-    name: "João Santos",
-    email: "joao@startup.io",
-    phone: "(21) 98888-2222",
-    document: "234.567.890-11",
-    responsible: "João Santos",
-    planType: "annual",
-    plan: "Business",
-    commercialStatus: "negotiation",
-    paymentPreference: "PIX",
-    address: {
-      state: "RJ",
-      street: "Rua das Laranjeiras",
-      number: "250",
-      neighborhood: "Laranjeiras",
-      city: "Rio de Janeiro",
-      country: "Brasil",
-      cep: "22240-003",
-    },
-    status: "active",
-    notes: "",
-    createdAt: "2025-12-01",
-  },
-  {
-    id: "3",
-    name: "Ana Costa",
-    email: "ana@tech.com",
-    phone: "(31) 97777-3333",
-    document: "345.678.901-22",
-    responsible: "Carlos Costa",
-    planType: "monthly",
-    plan: "Enterprise",
-    commercialStatus: "pending",
-    paymentPreference: "BOLETO",
-    address: {
-      state: "MG",
-      street: "Rua da Bahia",
-      number: "350",
-      neighborhood: "Centro",
-      city: "Belo Horizonte",
-      country: "Brasil",
-      cep: "30160-011",
-    },
-    status: "pending",
-    notes: "Aguardando documentos",
-    createdAt: "2026-01-10",
-  },
-  {
-    id: "4",
-    name: "Pedro Oliveira",
-    email: "pedro@comercio.br",
-    phone: "(41) 96666-4444",
-    document: "456.789.012-33",
-    responsible: "Juliana Oliveira",
-    planType: "annual",
-    plan: "Pro",
-    commercialStatus: "active",
-    paymentPreference: "CARTAO",
-    address: {
-      state: "PR",
-      street: "Rua XV de Novembro",
-      number: "89",
-      neighborhood: "Centro",
-      city: "Curitiba",
-      country: "Brasil",
-      cep: "80020-310",
-    },
-    status: "active",
-    notes: "",
-    createdAt: "2026-02-01",
-  },
-  {
-    id: "5",
-    name: "Carla Lima",
-    email: "carla@industria.com",
-    phone: "(51) 95555-5555",
-    document: "567.890.123-44",
-    responsible: "Carla Lima",
-    planType: "monthly",
-    plan: "Business",
-    commercialStatus: "inactive",
-    paymentPreference: "BOLETO",
-    address: {
-      state: "RS",
-      street: "Av. Ipiranga",
-      number: "6681",
-      neighborhood: "Partenon",
-      city: "Porto Alegre",
-      country: "Brasil",
-      cep: "90619-900",
-    },
-    status: "inactive",
-    notes: "Contrato encerrado",
-    createdAt: "2025-08-20",
-  },
-];
 
 const getTodayDate = () => new Date().toISOString().split("T")[0];
 
@@ -242,49 +117,72 @@ interface FormErrors {
 
 export default function TenantClients() {
   const [searchTerm, setSearchTerm] = useState("");
-
-  // Carrega localStorage + normaliza campos e junta com initialClients
-  const [clients, setClients] = useState<Client[]>(() => {
-    const stored = loadStoredClients() as Partial<Client>[];
-    const normalizedStored: Client[] = (stored || []).map((client) => ({
-      id:
-        client.id ??
-        (typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random()}`),
-      name: client.name ?? "",
-      email: client.email ?? "",
-      phone: client.phone ?? "",
-      document: client.document ?? "",
-
-      responsible: client.responsible ?? client.name ?? "",
-      planType: (client.planType as PlanType) ?? "monthly",
-      plan: (client.plan as Plan) ?? "Pro",
-      commercialStatus: (client.commercialStatus as CommercialStatus) ?? "active",
-      paymentPreference:
-        (client.paymentPreference as PaymentPreference) ?? "CARTAO",
-
-      address: {
-        state: client.address?.state ?? "SP",
-        street: client.address?.street ?? "",
-        number: client.address?.number ?? "",
-        neighborhood: client.address?.neighborhood ?? "",
-        city: client.address?.city ?? "",
-        country: client.address?.country ?? "Brasil",
-        cep: client.address?.cep ?? "",
-      },
-
-      status: (client.status as ClientStatus) ?? "active",
-      notes: client.notes ?? "",
-      createdAt: client.createdAt ?? getTodayDate(),
-    }));
-
-    return normalizedStored.length ? [...initialClients, ...normalizedStored] : initialClients;
-  });
-
+  const [clients, setClients] = useState<Client[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const { toast } = useToast();
+  const { profile } = useAuth();
+
+  // Fetch clients from Supabase on mount
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("clients")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching clients:", error);
+          toast({
+            title: "Erro ao carregar clientes",
+            description: "Não foi possível carregar a lista de clientes.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Transform database records to Client type
+        const transformedClients: Client[] = (data || []).map((record) => {
+          const customFields = (record.custom_fields || {}) as Record<string, unknown>;
+          return {
+            id: record.id,
+            name: record.name,
+            email: record.email || "",
+            phone: record.phone || "",
+            document: record.document || "",
+            responsible: (customFields.responsible as string) || record.name,
+            planType: (customFields.planType as PlanType) || "monthly",
+            plan: (customFields.plan as Plan) || "Pro",
+            commercialStatus: (customFields.commercialStatus as CommercialStatus) || "active",
+            paymentPreference: (customFields.paymentPreference as PaymentPreference) || "CARTAO",
+            address: {
+              state: (customFields.addressState as string) || "",
+              street: (customFields.addressStreet as string) || "",
+              number: (customFields.addressNumber as string) || "",
+              neighborhood: (customFields.addressNeighborhood as string) || "",
+              city: (customFields.addressCity as string) || "",
+              country: (customFields.addressCountry as string) || "Brasil",
+              cep: (customFields.addressCep as string) || "",
+            },
+            status: record.status as ClientStatus,
+            notes: record.notes || "",
+            createdAt: record.created_at,
+          };
+        });
+
+        setClients(transformedClients);
+      } catch (err) {
+        console.error("Error fetching clients:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchClients();
+  }, [toast]);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -395,7 +293,7 @@ export default function TenantClients() {
     if (formErrors[errorKey]) setFormErrors((prev) => ({ ...prev, [errorKey]: undefined }));
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const result = clientSchema.safeParse({
@@ -435,52 +333,143 @@ export default function TenantClients() {
       return;
     }
 
-    const now = new Date();
-    const newClient: Client = {
-      id:
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `${Date.now()}`,
-      name: result.data.name,
-      email: result.data.email,
-      phone: result.data.phone,
-      document: result.data.document,
+    if (!profile?.tenant_id) {
+      toast({
+        title: "Erro",
+        description: "Você precisa estar associado a uma empresa para adicionar clientes.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-      responsible: result.data.responsible,
-      planType: result.data.planType as PlanType,
-      plan: result.data.plan as Plan,
-      commercialStatus: result.data.commercialStatus as CommercialStatus,
-      paymentPreference: result.data.paymentPreference as PaymentPreference,
+    setIsSubmitting(true);
 
-      address: {
-        state: result.data.addressState,
-        street: result.data.addressStreet,
-        number: result.data.addressNumber,
-        neighborhood: result.data.addressNeighborhood,
-        city: result.data.addressCity,
-        country: result.data.addressCountry,
-        cep: result.data.addressCep,
-      },
+    try {
+      const { data: newRecord, error } = await supabase
+        .from("clients")
+        .insert([
+          {
+            tenant_id: profile.tenant_id,
+            name: result.data.name,
+            email: result.data.email,
+            phone: result.data.phone,
+            document: result.data.document,
+            status: result.data.status,
+            notes: result.data.notes || null,
+            custom_fields: {
+              responsible: result.data.responsible,
+              planType: result.data.planType,
+              plan: result.data.plan,
+              commercialStatus: result.data.commercialStatus,
+              paymentPreference: result.data.paymentPreference,
+              addressState: result.data.addressState,
+              addressStreet: result.data.addressStreet,
+              addressNumber: result.data.addressNumber,
+              addressNeighborhood: result.data.addressNeighborhood,
+              addressCity: result.data.addressCity,
+              addressCountry: result.data.addressCountry,
+              addressCep: result.data.addressCep,
+            },
+          },
+        ])
+        .select()
+        .single();
 
-      status: result.data.status as ClientStatus,
-      notes: result.data.notes || "",
-      createdAt: now.toISOString(),
-    };
+      if (error) {
+        console.error("Error creating client:", error);
+        toast({
+          title: "Erro ao criar cliente",
+          description: error.message || "Não foi possível criar o cliente.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    setClients((prev) => {
-      const updated = [...prev, newClient];
-      // persiste apenas os "novos" (sem os demo). aqui simplifico persistindo todos:
-      saveStoredClients(updated);
-      return updated;
-    });
+      // Add new client to local state
+      const customFields = (newRecord.custom_fields || {}) as Record<string, unknown>;
+      const newClient: Client = {
+        id: newRecord.id,
+        name: newRecord.name,
+        email: newRecord.email || "",
+        phone: newRecord.phone || "",
+        document: newRecord.document || "",
+        responsible: (customFields.responsible as string) || newRecord.name,
+        planType: (customFields.planType as PlanType) || "monthly",
+        plan: (customFields.plan as Plan) || "Pro",
+        commercialStatus: (customFields.commercialStatus as CommercialStatus) || "active",
+        paymentPreference: (customFields.paymentPreference as PaymentPreference) || "CARTAO",
+        address: {
+          state: (customFields.addressState as string) || "",
+          street: (customFields.addressStreet as string) || "",
+          number: (customFields.addressNumber as string) || "",
+          neighborhood: (customFields.addressNeighborhood as string) || "",
+          city: (customFields.addressCity as string) || "",
+          country: (customFields.addressCountry as string) || "Brasil",
+          cep: (customFields.addressCep as string) || "",
+        },
+        status: newRecord.status as ClientStatus,
+        notes: newRecord.notes || "",
+        createdAt: newRecord.created_at,
+      };
 
-    setIsDialogOpen(false);
+      setClients((prev) => [newClient, ...prev]);
+      setIsDialogOpen(false);
 
-    toast({
-      title: "Cliente adicionado",
-      description: "O cliente foi adicionado com sucesso.",
-    });
+      toast({
+        title: "Cliente adicionado",
+        description: "O cliente foi adicionado com sucesso.",
+      });
+    } catch (err) {
+      console.error("Error creating client:", err);
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao criar o cliente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  const handleDeleteClient = async (clientId: string) => {
+    try {
+      const { error } = await supabase
+        .from("clients")
+        .delete()
+        .eq("id", clientId);
+
+      if (error) {
+        console.error("Error deleting client:", error);
+        toast({
+          title: "Erro ao excluir cliente",
+          description: error.message || "Não foi possível excluir o cliente.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setClients((prev) => prev.filter((c) => c.id !== clientId));
+      toast({
+        title: "Cliente excluído",
+        description: "O cliente foi excluído com sucesso.",
+      });
+    } catch (err) {
+      console.error("Error deleting client:", err);
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao excluir o cliente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -601,12 +590,11 @@ export default function TenantClients() {
                 </label>
                 <Select
                   value={formData.status}
-                  onValueChange={(value) => handleFieldChange("status", value)}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({ ...prev, status: value as ClientStatus }))
+                  }
                 >
-                  <SelectTrigger
-                    id="status"
-                    className={formErrors.status ? "border-destructive" : ""}
-                  >
+                  <SelectTrigger className={formErrors.status ? "border-destructive" : ""}>
                     <SelectValue placeholder="Selecione o status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -621,56 +609,39 @@ export default function TenantClients() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="commercialStatus">
-                  Status comercial
+                <label className="text-sm font-medium" htmlFor="planType">
+                  Tipo de Plano
                 </label>
                 <Select
-                  value={formData.commercialStatus}
+                  value={formData.planType}
                   onValueChange={(value) =>
-                    handleFieldChange("commercialStatus", value)
+                    setFormData((prev) => ({ ...prev, planType: value as PlanType }))
                   }
                 >
-                  <SelectTrigger
-                    id="commercialStatus"
-                    className={formErrors.commercialStatus ? "border-destructive" : ""}
-                  >
-                    <SelectValue placeholder="Selecione o status comercial" />
+                  <SelectTrigger className={formErrors.planType ? "border-destructive" : ""}>
+                    <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">Ativo</SelectItem>
-                    <SelectItem value="negotiation">Em negociação</SelectItem>
-                    <SelectItem value="pending">Pendente</SelectItem>
-                    <SelectItem value="inactive">Inativo</SelectItem>
+                    <SelectItem value="monthly">Mensal</SelectItem>
+                    <SelectItem value="annual">Anual</SelectItem>
                   </SelectContent>
                 </Select>
-                {formErrors.commercialStatus && (
-                  <p className="text-sm text-destructive">
-                    {formErrors.commercialStatus}
-                  </p>
+                {formErrors.planType && (
+                  <p className="text-sm text-destructive">{formErrors.planType}</p>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="createdAt">
-                  Desde
-                </label>
-                <Input id="createdAt" type="date" value={formData.createdAt} readOnly />
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
                 <label className="text-sm font-medium" htmlFor="plan">
                   Plano
                 </label>
                 <Select
                   value={formData.plan}
-                  onValueChange={(value) => handleFieldChange("plan", value)}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({ ...prev, plan: value as Plan }))
+                  }
                 >
-                  <SelectTrigger
-                    id="plan"
-                    className={formErrors.plan ? "border-destructive" : ""}
-                  >
+                  <SelectTrigger className={formErrors.plan ? "border-destructive" : ""}>
                     <SelectValue placeholder="Selecione o plano" />
                   </SelectTrigger>
                   <SelectContent>
@@ -685,48 +656,58 @@ export default function TenantClients() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="planType">
-                  Tipo de cobrança
+                <label className="text-sm font-medium" htmlFor="commercialStatus">
+                  Status Comercial
                 </label>
                 <Select
-                  value={formData.planType}
-                  onValueChange={(value) => handleFieldChange("planType", value)}
+                  value={formData.commercialStatus}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      commercialStatus: value as CommercialStatus,
+                    }))
+                  }
                 >
                   <SelectTrigger
-                    id="planType"
-                    className={formErrors.planType ? "border-destructive" : ""}
+                    className={formErrors.commercialStatus ? "border-destructive" : ""}
                   >
-                    <SelectValue placeholder="Mensal ou anual" />
+                    <SelectValue placeholder="Selecione o status comercial" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="monthly">Mensal</SelectItem>
-                    <SelectItem value="annual">Anual</SelectItem>
+                    <SelectItem value="active">Ativo</SelectItem>
+                    <SelectItem value="negotiation">Em Negociação</SelectItem>
+                    <SelectItem value="pending">Pendente</SelectItem>
+                    <SelectItem value="inactive">Inativo</SelectItem>
                   </SelectContent>
                 </Select>
-                {formErrors.planType && (
-                  <p className="text-sm text-destructive">{formErrors.planType}</p>
+                {formErrors.commercialStatus && (
+                  <p className="text-sm text-destructive">
+                    {formErrors.commercialStatus}
+                  </p>
                 )}
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium" htmlFor="paymentPreference">
-                  Preferência de pagamento
+                  Preferência de Pagamento
                 </label>
                 <Select
                   value={formData.paymentPreference}
                   onValueChange={(value) =>
-                    handleFieldChange("paymentPreference", value)
+                    setFormData((prev) => ({
+                      ...prev,
+                      paymentPreference: value as PaymentPreference,
+                    }))
                   }
                 >
                   <SelectTrigger
-                    id="paymentPreference"
                     className={formErrors.paymentPreference ? "border-destructive" : ""}
                   >
-                    <SelectValue placeholder="Selecione a preferência" />
+                    <SelectValue placeholder="Selecione a forma de pagamento" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="CARTAO">Cartão</SelectItem>
-                    <SelectItem value="PIX">Pix</SelectItem>
+                    <SelectItem value="PIX">PIX</SelectItem>
                     <SelectItem value="BOLETO">Boleto</SelectItem>
                   </SelectContent>
                 </Select>
@@ -738,73 +719,42 @@ export default function TenantClients() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Endereço</p>
-
+            {/* Address Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Endereço</h3>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium" htmlFor="addressStreet">
-                    Rua
+                  <label className="text-sm font-medium" htmlFor="addressCep">
+                    CEP
                   </label>
                   <Input
-                    id="addressStreet"
-                    value={formData.address.street}
-                    onChange={(event) =>
-                      handleAddressChange("street", event.target.value)
-                    }
-                    placeholder="Rua"
-                    maxLength={255}
-                    className={formErrors.addressStreet ? "border-destructive" : ""}
+                    id="addressCep"
+                    value={formData.address.cep}
+                    onChange={(event) => handleCepChange(event.target.value)}
+                    placeholder="00000-000"
+                    className={formErrors.addressCep ? "border-destructive" : ""}
                   />
-                  {formErrors.addressStreet && (
-                    <p className="text-sm text-destructive">
-                      {formErrors.addressStreet}
-                    </p>
+                  {formErrors.addressCep && (
+                    <p className="text-sm text-destructive">{formErrors.addressCep}</p>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium" htmlFor="addressNumber">
-                    Número
+                  <label className="text-sm font-medium" htmlFor="addressState">
+                    Estado
                   </label>
                   <Input
-                    id="addressNumber"
-                    value={formData.address.number}
+                    id="addressState"
+                    value={formData.address.state}
                     onChange={(event) =>
-                      handleAddressChange("number", event.target.value)
+                      handleAddressChange("state", event.target.value)
                     }
-                    placeholder="Número"
-                    maxLength={50}
-                    className={formErrors.addressNumber ? "border-destructive" : ""}
+                    placeholder="SP"
+                    maxLength={2}
+                    className={formErrors.addressState ? "border-destructive" : ""}
                   />
-                  {formErrors.addressNumber && (
-                    <p className="text-sm text-destructive">
-                      {formErrors.addressNumber}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <label
-                    className="text-sm font-medium"
-                    htmlFor="addressNeighborhood"
-                  >
-                    Bairro
-                  </label>
-                  <Input
-                    id="addressNeighborhood"
-                    value={formData.address.neighborhood}
-                    onChange={(event) =>
-                      handleAddressChange("neighborhood", event.target.value)
-                    }
-                    placeholder="Bairro"
-                    maxLength={255}
-                    className={formErrors.addressNeighborhood ? "border-destructive" : ""}
-                  />
-                  {formErrors.addressNeighborhood && (
-                    <p className="text-sm text-destructive">
-                      {formErrors.addressNeighborhood}
-                    </p>
+                  {formErrors.addressState && (
+                    <p className="text-sm text-destructive">{formErrors.addressState}</p>
                   )}
                 </div>
 
@@ -818,35 +768,71 @@ export default function TenantClients() {
                     onChange={(event) =>
                       handleAddressChange("city", event.target.value)
                     }
-                    placeholder="Cidade"
-                    maxLength={255}
+                    placeholder="São Paulo"
+                    maxLength={100}
                     className={formErrors.addressCity ? "border-destructive" : ""}
                   />
                   {formErrors.addressCity && (
-                    <p className="text-sm text-destructive">
-                      {formErrors.addressCity}
-                    </p>
+                    <p className="text-sm text-destructive">{formErrors.addressCity}</p>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium" htmlFor="addressState">
-                    UF
+                  <label className="text-sm font-medium" htmlFor="addressNeighborhood">
+                    Bairro
                   </label>
                   <Input
-                    id="addressState"
-                    value={formData.address.state}
+                    id="addressNeighborhood"
+                    value={formData.address.neighborhood}
                     onChange={(event) =>
-                      handleAddressChange("state", event.target.value.toUpperCase())
+                      handleAddressChange("neighborhood", event.target.value)
                     }
-                    placeholder="UF"
-                    maxLength={2}
-                    className={formErrors.addressState ? "border-destructive" : ""}
+                    placeholder="Centro"
+                    maxLength={100}
+                    className={formErrors.addressNeighborhood ? "border-destructive" : ""}
                   />
-                  {formErrors.addressState && (
+                  {formErrors.addressNeighborhood && (
                     <p className="text-sm text-destructive">
-                      {formErrors.addressState}
+                      {formErrors.addressNeighborhood}
                     </p>
+                  )}
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm font-medium" htmlFor="addressStreet">
+                    Rua
+                  </label>
+                  <Input
+                    id="addressStreet"
+                    value={formData.address.street}
+                    onChange={(event) =>
+                      handleAddressChange("street", event.target.value)
+                    }
+                    placeholder="Av. Paulista"
+                    maxLength={255}
+                    className={formErrors.addressStreet ? "border-destructive" : ""}
+                  />
+                  {formErrors.addressStreet && (
+                    <p className="text-sm text-destructive">{formErrors.addressStreet}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor="addressNumber">
+                    Número
+                  </label>
+                  <Input
+                    id="addressNumber"
+                    value={formData.address.number}
+                    onChange={(event) =>
+                      handleAddressChange("number", event.target.value)
+                    }
+                    placeholder="1000"
+                    maxLength={20}
+                    className={formErrors.addressNumber ? "border-destructive" : ""}
+                  />
+                  {formErrors.addressNumber && (
+                    <p className="text-sm text-destructive">{formErrors.addressNumber}</p>
                   )}
                 </div>
 
@@ -860,36 +846,18 @@ export default function TenantClients() {
                     onChange={(event) =>
                       handleAddressChange("country", event.target.value)
                     }
-                    placeholder="País"
-                    maxLength={255}
+                    placeholder="Brasil"
+                    maxLength={100}
                     className={formErrors.addressCountry ? "border-destructive" : ""}
                   />
                   {formErrors.addressCountry && (
-                    <p className="text-sm text-destructive">
-                      {formErrors.addressCountry}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium" htmlFor="addressCep">
-                    CEP
-                  </label>
-                  <Input
-                    id="addressCep"
-                    value={formData.address.cep}
-                    onChange={(event) => handleCepChange(event.target.value)}
-                    placeholder="00000-000"
-                    maxLength={9}
-                    className={formErrors.addressCep ? "border-destructive" : ""}
-                  />
-                  {formErrors.addressCep && (
-                    <p className="text-sm text-destructive">{formErrors.addressCep}</p>
+                    <p className="text-sm text-destructive">{formErrors.addressCountry}</p>
                   )}
                 </div>
               </div>
             </div>
 
+            {/* Notes */}
             <div className="space-y-2">
               <label className="text-sm font-medium" htmlFor="notes">
                 Observações
@@ -898,23 +866,16 @@ export default function TenantClients() {
                 id="notes"
                 value={formData.notes}
                 onChange={(event) => handleFieldChange("notes", event.target.value)}
-                placeholder="Notas adicionais sobre o cliente"
-                maxLength={5000}
+                placeholder="Notas adicionais sobre o cliente..."
                 className={formErrors.notes ? "border-destructive" : ""}
+                rows={3}
               />
-              <div className="flex justify-between">
-                {formErrors.notes ? (
-                  <p className="text-sm text-destructive">{formErrors.notes}</p>
-                ) : (
-                  <span />
-                )}
-                <p className="text-xs text-muted-foreground">
-                  {formData.notes.length}/5000
-                </p>
-              </div>
+              {formErrors.notes && (
+                <p className="text-sm text-destructive">{formErrors.notes}</p>
+              )}
             </div>
 
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 pt-4">
               <Button
                 type="button"
                 variant="outline"
@@ -922,148 +883,167 @@ export default function TenantClients() {
               >
                 Cancelar
               </Button>
-              <Button type="submit">Salvar cliente</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  "Adicionar Cliente"
+                )}
+              </Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nome, e-mail, telefone ou CPF/CNPJ..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Table */}
+      {/* Search and Filters */}
       <Card>
         <CardHeader>
           <CardTitle>Lista de Clientes</CardTitle>
-          <CardDescription>{filteredClients.length} clientes encontrados</CardDescription>
+          <CardDescription>
+            {filteredClients.length} cliente(s) encontrado(s)
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Plano/Cobrança</TableHead>
-                <TableHead>Status comercial</TableHead>
-                <TableHead>Preferência</TableHead>
-                <TableHead>Documento/Responsável</TableHead>
-                <TableHead>Endereço</TableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
+          <div className="flex items-center gap-4 mb-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome, e-mail, telefone, documento..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
 
-            <TableBody>
-              {filteredClients.map((client) => (
-                <TableRow key={client.id} className="table-row-hover">
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{client.name}</p>
-                      <div className="space-y-1 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <Mail className="h-3 w-3" />
-                          {client.email}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-3 w-3" />
-                          {client.phone}
-                        </div>
-                        <p>Desde {new Date(client.createdAt).toLocaleDateString("pt-BR")}</p>
-                        {client.notes && <p>{client.notes}</p>}
-                      </div>
-                    </div>
-                  </TableCell>
-
-                  <TableCell>
-                    <div className="space-y-2">
-                      <Badge variant="secondary">{client.plan}</Badge>
-                      <p className="text-sm text-muted-foreground">
-                        {client.planType === "monthly" ? "Mensal" : "Anual"}
-                      </p>
-                    </div>
-                  </TableCell>
-
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={
-                        client.commercialStatus === "active"
-                          ? "status-active"
-                          : client.commercialStatus === "pending"
-                          ? "status-pending"
-                          : client.commercialStatus === "negotiation"
-                          ? "status-pending"
-                          : "status-inactive"
-                      }
-                    >
-                      {client.commercialStatus === "active"
-                        ? "Ativo"
-                        : client.commercialStatus === "pending"
-                        ? "Pendente"
-                        : client.commercialStatus === "negotiation"
-                        ? "Em negociação"
-                        : "Inativo"}
-                    </Badge>
-                  </TableCell>
-
-                  <TableCell>
-                    <p className="text-sm font-medium">
-                      {client.paymentPreference === "CARTAO"
-                        ? "Cartão"
-                        : client.paymentPreference === "PIX"
-                        ? "Pix"
-                        : "Boleto"}
-                    </p>
-                  </TableCell>
-
-                  <TableCell>
-                    <div className="space-y-1">
-                      <p className="font-mono text-sm">{client.document}</p>
-                      <p className="text-sm text-muted-foreground">{client.responsible}</p>
-                    </div>
-                  </TableCell>
-
-                  <TableCell className="text-sm text-muted-foreground">
-                    {client.address.city}/{client.address.state}
-                  </TableCell>
-
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Eye className="mr-2 h-4 w-4" />
-                          Visualizar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Excluir
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+          {/* Table */}
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome / Responsável</TableHead>
+                  <TableHead>Contato</TableHead>
+                  <TableHead>CPF/CNPJ</TableHead>
+                  <TableHead>Plano / Cobrança</TableHead>
+                  <TableHead>Pagamento</TableHead>
+                  <TableHead>Cidade/UF</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Desde</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredClients.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                      Nenhum cliente encontrado
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredClients.map((client) => (
+                    <TableRow key={client.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{client.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {client.responsible}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1 text-sm">
+                            <Mail className="h-3 w-3" />
+                            {client.email || "-"}
+                          </div>
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Phone className="h-3 w-3" />
+                            {client.phone || "-"}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {client.document || "-"}
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{client.plan}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {client.planType === "monthly" ? "Mensal" : "Anual"}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">
+                          {client.paymentPreference === "CARTAO"
+                            ? "Cartão"
+                            : client.paymentPreference === "PIX"
+                            ? "PIX"
+                            : "Boleto"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          {client.address.city && client.address.state
+                            ? `${client.address.city}/${client.address.state}`
+                            : "-"}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            client.status === "active"
+                              ? "default"
+                              : client.status === "pending"
+                              ? "secondary"
+                              : "outline"
+                          }
+                        >
+                          {client.status === "active"
+                            ? "Ativo"
+                            : client.status === "pending"
+                            ? "Pendente"
+                            : "Inativo"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {new Date(client.createdAt).toLocaleDateString("pt-BR")}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>
+                              <Eye className="mr-2 h-4 w-4" />
+                              Visualizar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => handleDeleteClient(client.id)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>
