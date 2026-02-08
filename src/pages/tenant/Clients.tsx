@@ -8,7 +8,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -34,18 +33,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Search,
   Plus,
-  MoreHorizontal,
-  Eye,
-  Edit,
-  Trash2,
   Phone,
   Mail,
   Loader2,
@@ -92,6 +81,8 @@ type Client = {
   createdAt: string;
 };
 
+const LOCAL_CLIENTS_KEY = "localClients";
+
 const getTodayDate = () => new Date().toISOString().split("T")[0];
 
 interface FormErrors {
@@ -124,6 +115,18 @@ export default function TenantClients() {
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const { toast } = useToast();
   const { profile } = useAuth();
+
+  const getLocalClients = (): Client[] => {
+    if (typeof window === "undefined") return [];
+    try {
+      const storedClients = localStorage.getItem(LOCAL_CLIENTS_KEY);
+      const parsedClients = storedClients ? JSON.parse(storedClients) : [];
+      return Array.isArray(parsedClients) ? (parsedClients as Client[]) : [];
+    } catch (error) {
+      console.error("Erro ao carregar clientes locais", error);
+      return [];
+    }
+  };
 
   // Fetch clients from Supabase on mount
   useEffect(() => {
@@ -173,7 +176,11 @@ export default function TenantClients() {
           };
         });
 
-        setClients(transformedClients);
+        const localClients = getLocalClients();
+        const combinedClients = [...localClients, ...transformedClients].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setClients(combinedClients);
       } catch (err) {
         console.error("Error fetching clients:", err);
       } finally {
@@ -428,38 +435,6 @@ export default function TenantClients() {
       });
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleDeleteClient = async (clientId: string) => {
-    try {
-      const { error } = await supabase
-        .from("clients")
-        .delete()
-        .eq("id", clientId);
-
-      if (error) {
-        console.error("Error deleting client:", error);
-        toast({
-          title: "Erro ao excluir cliente",
-          description: error.message || "Não foi possível excluir o cliente.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setClients((prev) => prev.filter((c) => c.id !== clientId));
-      toast({
-        title: "Cliente excluído",
-        description: "O cliente foi excluído com sucesso.",
-      });
-    } catch (err) {
-      console.error("Error deleting client:", err);
-      toast({
-        title: "Erro",
-        description: "Ocorreu um erro ao excluir o cliente.",
-        variant: "destructive",
-      });
     }
   };
 
@@ -924,120 +899,54 @@ export default function TenantClients() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nome / Responsável</TableHead>
-                  <TableHead>Contato</TableHead>
+                  <TableHead>Nome</TableHead>
                   <TableHead>CPF/CNPJ</TableHead>
-                  <TableHead>Plano / Cobrança</TableHead>
-                  <TableHead>Pagamento</TableHead>
-                  <TableHead>Cidade/UF</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Desde</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
+                  <TableHead>Nome do responsável</TableHead>
+                  <TableHead>Telefone</TableHead>
+                  <TableHead>E-mail</TableHead>
+                  <TableHead>UF</TableHead>
+                  <TableHead>Rua</TableHead>
+                  <TableHead>Número</TableHead>
+                  <TableHead>Bairro</TableHead>
+                  <TableHead>Cidade</TableHead>
+                  <TableHead>País</TableHead>
+                  <TableHead>CEP</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredClients.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                       Nenhum cliente encontrado
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredClients.map((client) => (
                     <TableRow key={client.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{client.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {client.responsible}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1 text-sm">
-                            <Mail className="h-3 w-3" />
-                            {client.email || "-"}
-                          </div>
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Phone className="h-3 w-3" />
-                            {client.phone || "-"}
-                          </div>
-                        </div>
-                      </TableCell>
+                      <TableCell>{client.name || "-"}</TableCell>
                       <TableCell className="font-mono text-sm">
                         {client.document || "-"}
                       </TableCell>
+                      <TableCell>{client.responsible || "-"}</TableCell>
                       <TableCell>
-                        <div>
-                          <p className="font-medium">{client.plan}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {client.planType === "monthly" ? "Mensal" : "Anual"}
-                          </p>
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <Phone className="h-3 w-3" />
+                          {client.phone || "-"}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {client.paymentPreference === "CARTAO"
-                            ? "Cartão"
-                            : client.paymentPreference === "PIX"
-                            ? "PIX"
-                            : "Boleto"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {client.address.city && client.address.state
-                            ? `${client.address.city}/${client.address.state}`
-                            : "-"}
+                        <div className="flex items-center gap-1 text-sm">
+                          <Mail className="h-3 w-3" />
+                          {client.email || "-"}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            client.status === "active"
-                              ? "default"
-                              : client.status === "pending"
-                              ? "secondary"
-                              : "outline"
-                          }
-                        >
-                          {client.status === "active"
-                            ? "Ativo"
-                            : client.status === "pending"
-                            ? "Pendente"
-                            : "Inativo"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {new Date(client.createdAt).toLocaleDateString("pt-BR")}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
-                              <Eye className="mr-2 h-4 w-4" />
-                              Visualizar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => handleDeleteClient(client.id)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Excluir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
+                      <TableCell>{client.address.state || "-"}</TableCell>
+                      <TableCell>{client.address.street || "-"}</TableCell>
+                      <TableCell>{client.address.number || "-"}</TableCell>
+                      <TableCell>{client.address.neighborhood || "-"}</TableCell>
+                      <TableCell>{client.address.city || "-"}</TableCell>
+                      <TableCell>{client.address.country || "-"}</TableCell>
+                      <TableCell>{client.address.cep || "-"}</TableCell>
                     </TableRow>
                   ))
                 )}

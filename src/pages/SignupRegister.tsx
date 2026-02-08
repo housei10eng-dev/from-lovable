@@ -109,6 +109,13 @@ export default function SignupRegister() {
   useEffect(() => {
     if (documentType === 'cpf') {
       setFormData((prev) => ({ ...prev, responsible: prev.name }));
+      return;
+    }
+    if (documentType === 'cnpj') {
+      setFormData((prev) => ({
+        ...prev,
+        responsible: prev.responsible === prev.name ? '' : prev.responsible,
+      }));
     }
   }, [documentType, formData.name]);
 
@@ -167,6 +174,54 @@ export default function SignupRegister() {
 
     return () => controller.abort();
   }, [documentType, formData.document, formErrors.name, lastCnpjLookup, toast]);
+
+  useEffect(() => {
+    const digits = formData.address.cep.replace(/\D/g, '');
+    if (digits.length !== 8) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const fetchAddress = async () => {
+      try {
+        const response = await fetch(`https://viacep.com.br/ws/${digits}/json/`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          return;
+        }
+        const data = (await response.json()) as {
+          erro?: boolean;
+          logradouro?: string;
+          bairro?: string;
+          localidade?: string;
+          uf?: string;
+        };
+        if (data.erro) {
+          return;
+        }
+        setFormData((prev) => ({
+          ...prev,
+          address: {
+            ...prev.address,
+            street: data.logradouro ?? prev.address.street,
+            neighborhood: data.bairro ?? prev.address.neighborhood,
+            city: data.localidade ?? prev.address.city,
+            state: data.uf ?? prev.address.state,
+            country: 'Brasil',
+          },
+        }));
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Erro ao buscar CEP', error);
+        }
+      }
+    };
+
+    fetchAddress();
+
+    return () => controller.abort();
+  }, [formData.address.cep]);
 
   const handleFieldChange = (field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
