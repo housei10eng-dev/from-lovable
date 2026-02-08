@@ -39,8 +39,6 @@ const BILLING_LABELS: Record<string, string> = {
   annual: 'Anual',
 };
 
-const LOCAL_CLIENTS_KEY = 'localClients';
-
 interface FormErrors {
   name?: string;
   document?: string;
@@ -80,6 +78,8 @@ export default function SignupRegister() {
   const totalValue = parseInt(totalFromParams, 10);
 
   const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [isNameLocked, setIsNameLocked] = useState(false);
+  const [lastCnpjLookup, setLastCnpjLookup] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     document: '',
@@ -118,6 +118,62 @@ export default function SignupRegister() {
       }));
     }
   }, [documentType, formData.name]);
+
+  useEffect(() => {
+    const digits = formData.document.replace(/\D/g, '');
+    if (digits.length < 14) {
+      setIsNameLocked(false);
+      setLastCnpjLookup(null);
+      return;
+    }
+
+    if (documentType !== 'cnpj') {
+      setIsNameLocked(false);
+      return;
+    }
+
+    setIsNameLocked(true);
+
+    if (digits === lastCnpjLookup) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const fetchCompanyName = async () => {
+      try {
+        const response = await fetch(
+          `https://brasilapi.com.br/api/cnpj/v1/${digits}`,
+          { signal: controller.signal }
+        );
+        if (!response.ok) {
+          throw new Error('Falha ao consultar CNPJ');
+        }
+        const data = (await response.json()) as { razao_social?: string; nome?: string };
+        const companyName = data.razao_social ?? data.nome;
+        if (!companyName) {
+          throw new Error('Razão social não encontrada');
+        }
+        setLastCnpjLookup(digits);
+        setFormData((prev) => ({ ...prev, name: companyName }));
+        if (formErrors.name) {
+          setFormErrors((prev) => ({ ...prev, name: undefined }));
+        }
+      } catch (error) {
+        if ((error as Error).name === 'AbortError') {
+          return;
+        }
+        toast({
+          title: 'Não foi possível preencher a razão social',
+          description: 'Tente novamente após conferir o CNPJ informado.',
+          variant: 'destructive',
+        });
+      }
+    };
+
+    fetchCompanyName();
+
+    return () => controller.abort();
+  }, [documentType, formData.document, formErrors.name, lastCnpjLookup, toast]);
 
   useEffect(() => {
     const digits = formData.address.cep.replace(/\D/g, '');
@@ -163,6 +219,7 @@ export default function SignupRegister() {
     };
 
     fetchAddress();
+
     return () => controller.abort();
   }, [formData.address.cep]);
 
@@ -195,6 +252,10 @@ export default function SignupRegister() {
   const handleDocumentChange = (value: string) => {
     const formatted = formatDocument(value);
     setFormData((prev) => ({ ...prev, document: formatted }));
+    const digits = formatted.replace(/\D/g, '');
+    if (digits.length < 14) {
+      setIsNameLocked(false);
+    }
     if (formErrors.document) {
       setFormErrors((prev) => ({ ...prev, document: undefined }));
     }
@@ -258,41 +319,16 @@ export default function SignupRegister() {
       email: result.data.email,
       phone: result.data.phone,
       document: result.data.document,
-      responsible: result.data.responsible,
-      planType: billing === 'annual' ? 'annual' : 'monthly',
-      plan: planLabel,
-      commercialStatus: 'pending',
-      paymentPreference: result.data.paymentPreference,
-      address: {
-        state: result.data.address.state,
-        street: result.data.address.street,
-        number: result.data.address.number,
-        neighborhood: result.data.address.neighborhood,
-        city: result.data.address.city,
-        country: result.data.address.country,
-        cep: result.data.address.cep,
-      },
       status: 'pending' as const,
       notes: result.data.promoCode ? `Código promocional: ${result.data.promoCode}` : '',
       createdAt: now.toISOString(),
     };
 
-    console.log('New client registration (local storage):', newClientData.id);
-
-    try {
-      const storedClients = localStorage.getItem(LOCAL_CLIENTS_KEY);
-      const parsedClients = storedClients ? JSON.parse(storedClients) : [];
-      const updatedClients = Array.isArray(parsedClients)
-        ? [newClientData, ...parsedClients]
-        : [newClientData];
-      localStorage.setItem(LOCAL_CLIENTS_KEY, JSON.stringify(updatedClients));
-    } catch (error) {
-      console.error('Erro ao salvar cliente localmente', error);
-    }
+    console.log('New client registration (in-memory only):', newClientData.id);
 
     toast({
-      title: 'Compra confirmada',
-      description: 'Os dados foram registrados e adicionados à lista de clientes.',
+      title: 'Cadastro enviado',
+      description: 'Os dados foram processados. (Dados armazenados apenas em memória)',
     });
 
     setFormData((prev) => ({
@@ -314,6 +350,8 @@ export default function SignupRegister() {
         cep: '',
       },
     }));
+    setIsNameLocked(false);
+    setLastCnpjLookup(null);
     setFormErrors({});
   };
 
@@ -465,6 +503,7 @@ export default function SignupRegister() {
                     value={formData.name}
                     onChange={(event) => handleFieldChange('name', event.target.value)}
                     placeholder="Nome completo"
+                    disabled={isNameLocked}
                     className={formErrors.name ? 'border-destructive' : ''}
                   />
                   {formErrors.name && (
@@ -611,21 +650,6 @@ export default function SignupRegister() {
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium" htmlFor="cep">
-                      CEP *
-                    </label>
-                    <Input
-                      id="cep"
-                      value={formData.address.cep}
-                      onChange={(event) => handleCepChange(event.target.value)}
-                      placeholder="00000-000"
-                      className={formErrors.address?.cep ? 'border-destructive' : ''}
-                    />
-                    {formErrors.address?.cep && (
-                      <p className="text-sm text-destructive">{formErrors.address.cep}</p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
                     <label className="text-sm font-medium" htmlFor="state">
                       UF *
                     </label>
@@ -730,11 +754,26 @@ export default function SignupRegister() {
                       <p className="text-sm text-destructive">{formErrors.address.country}</p>
                     )}
                   </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium" htmlFor="cep">
+                      CEP *
+                    </label>
+                    <Input
+                      id="cep"
+                      value={formData.address.cep}
+                      onChange={(event) => handleCepChange(event.target.value)}
+                      placeholder="00000-000"
+                      className={formErrors.address?.cep ? 'border-destructive' : ''}
+                    />
+                    {formErrors.address?.cep && (
+                      <p className="text-sm text-destructive">{formErrors.address.cep}</p>
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="flex justify-end">
-                <Button type="submit">Confirmar compra</Button>
+                <Button type="submit">Salvar cadastro</Button>
               </div>
             </form>
           </CardContent>
