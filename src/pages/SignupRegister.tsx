@@ -39,6 +39,33 @@ const BILLING_LABELS: Record<string, string> = {
   annual: 'Anual',
 };
 
+const LOCAL_CLIENTS_KEY = 'localClients';
+
+type LocalClient = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  document: string;
+  responsible: string;
+  planType: 'monthly' | 'annual';
+  plan: 'Pro' | 'Business' | 'Enterprise';
+  commercialStatus: 'pending';
+  paymentPreference: 'CARTAO' | 'PIX' | 'BOLETO';
+  address: {
+    state: string;
+    street: string;
+    number: string;
+    neighborhood: string;
+    city: string;
+    country: string;
+    cep: string;
+  };
+  status: 'pending';
+  notes: string;
+  createdAt: string;
+};
+
 interface FormErrors {
   name?: string;
   document?: string;
@@ -310,7 +337,7 @@ export default function SignupRegister() {
     }
 
     const now = new Date();
-    const newClientData = {
+    const newClientData: LocalClient = {
       id:
         typeof crypto !== 'undefined' && 'randomUUID' in crypto
           ? crypto.randomUUID()
@@ -319,16 +346,33 @@ export default function SignupRegister() {
       email: result.data.email,
       phone: result.data.phone,
       document: result.data.document,
-      status: 'pending' as const,
+      responsible: result.data.responsible,
+      planType: billing === 'annual' ? 'annual' : 'monthly',
+      plan: planLabel as LocalClient['plan'],
+      commercialStatus: 'pending',
+      paymentPreference: result.data.paymentPreference,
+      address: { ...result.data.address },
+      status: 'pending',
       notes: result.data.promoCode ? `Código promocional: ${result.data.promoCode}` : '',
       createdAt: now.toISOString(),
     };
 
-    console.log('New client registration (in-memory only):', newClientData.id);
+    if (typeof window !== 'undefined') {
+      try {
+        const storedClients = localStorage.getItem(LOCAL_CLIENTS_KEY);
+        const parsedClients = storedClients ? JSON.parse(storedClients) : [];
+        const nextClients = Array.isArray(parsedClients)
+          ? ([newClientData, ...parsedClients] as LocalClient[])
+          : [newClientData];
+        localStorage.setItem(LOCAL_CLIENTS_KEY, JSON.stringify(nextClients));
+      } catch (error) {
+        console.error('Erro ao salvar cliente local', error);
+      }
+    }
 
     toast({
       title: 'Cadastro enviado',
-      description: 'Os dados foram processados. (Dados armazenados apenas em memória)',
+      description: 'Os dados foram processados e incluídos na lista de clientes.',
     });
 
     setFormData((prev) => ({
@@ -650,6 +694,21 @@ export default function SignupRegister() {
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
+                    <label className="text-sm font-medium" htmlFor="cep">
+                      CEP *
+                    </label>
+                    <Input
+                      id="cep"
+                      value={formData.address.cep}
+                      onChange={(event) => handleCepChange(event.target.value)}
+                      placeholder="00000-000"
+                      className={formErrors.address?.cep ? 'border-destructive' : ''}
+                    />
+                    {formErrors.address?.cep && (
+                      <p className="text-sm text-destructive">{formErrors.address.cep}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
                     <label className="text-sm font-medium" htmlFor="state">
                       UF *
                     </label>
@@ -754,26 +813,11 @@ export default function SignupRegister() {
                       <p className="text-sm text-destructive">{formErrors.address.country}</p>
                     )}
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium" htmlFor="cep">
-                      CEP *
-                    </label>
-                    <Input
-                      id="cep"
-                      value={formData.address.cep}
-                      onChange={(event) => handleCepChange(event.target.value)}
-                      placeholder="00000-000"
-                      className={formErrors.address?.cep ? 'border-destructive' : ''}
-                    />
-                    {formErrors.address?.cep && (
-                      <p className="text-sm text-destructive">{formErrors.address.cep}</p>
-                    )}
-                  </div>
                 </div>
               </div>
 
               <div className="flex justify-end">
-                <Button type="submit">Salvar cadastro</Button>
+                <Button type="submit">Confirmar Pagamento</Button>
               </div>
             </form>
           </CardContent>
