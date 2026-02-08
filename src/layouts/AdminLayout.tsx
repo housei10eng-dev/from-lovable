@@ -1,19 +1,19 @@
+import { useEffect } from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { useAuth } from '@/contexts/AuthContext';
-import { useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminLayout() {
   const { user, isAdmin, isLoading } = useAuth();
   const { toast } = useToast();
 
-  // Show access denied toast when non-admin user tries to access admin routes
+  // Show access denied toast when non-admin tries to access admin routes
   useEffect(() => {
     if (!isLoading && user && !isAdmin) {
       toast({
-        title: 'Access Denied',
-        description: 'You do not have permission to access admin features.',
+        title: 'Acesso Negado',
+        description: 'Você não tem permissão para acessar esta área.',
         variant: 'destructive',
       });
     }
@@ -27,11 +27,12 @@ export default function AdminLayout() {
     );
   }
 
+  // Require authentication
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  // Enforce strict role-based access control
+  // Strict role-based access control - non-admin users are redirected
   if (!isAdmin) {
     return <Navigate to="/crm" replace />;
   }

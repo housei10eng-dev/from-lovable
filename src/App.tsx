@@ -7,7 +7,9 @@ import { AuthProvider } from "@/contexts/AuthContext";
 
 // Pages
 import Login from "./pages/Login";
+import SignupPlan from "./pages/SignupPlan";
 import NotFound from "./pages/NotFound";
+import SignupRegister from "./pages/SignupRegister";
 
 // Admin Pages
 import AdminLayout from "./layouts/AdminLayout";
@@ -38,6 +40,8 @@ const App = () => (
             {/* Public Routes */}
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/signup/plan" element={<SignupPlan />} />
+            <Route path="/signup/register" element={<SignupRegister />} />
 
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminLayout />}>

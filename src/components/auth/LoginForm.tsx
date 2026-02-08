@@ -92,6 +92,15 @@ export function LoginForm() {
               </>
             )}
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => navigate('/signup/plan')}
+            disabled={isLoading}
+          >
+            Cadastrar novos clientes
+          </Button>
         </form>
       </CardContent>
     </Card>
