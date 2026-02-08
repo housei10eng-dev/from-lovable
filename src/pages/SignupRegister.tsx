@@ -39,6 +39,8 @@ const BILLING_LABELS: Record<string, string> = {
   annual: 'Anual',
 };
 
+const LOCAL_CLIENTS_KEY = 'localClients';
+
 interface FormErrors {
   name?: string;
   document?: string;
@@ -107,8 +109,62 @@ export default function SignupRegister() {
   useEffect(() => {
     if (documentType === 'cpf') {
       setFormData((prev) => ({ ...prev, responsible: prev.name }));
+      return;
+    }
+    if (documentType === 'cnpj') {
+      setFormData((prev) => ({
+        ...prev,
+        responsible: prev.responsible === prev.name ? '' : prev.responsible,
+      }));
     }
   }, [documentType, formData.name]);
+
+  useEffect(() => {
+    const digits = formData.address.cep.replace(/\D/g, '');
+    if (digits.length !== 8) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const fetchAddress = async () => {
+      try {
+        const response = await fetch(`https://viacep.com.br/ws/${digits}/json/`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          return;
+        }
+        const data = (await response.json()) as {
+          erro?: boolean;
+          logradouro?: string;
+          bairro?: string;
+          localidade?: string;
+          uf?: string;
+        };
+        if (data.erro) {
+          return;
+        }
+        setFormData((prev) => ({
+          ...prev,
+          address: {
+            ...prev.address,
+            street: data.logradouro ?? prev.address.street,
+            neighborhood: data.bairro ?? prev.address.neighborhood,
+            city: data.localidade ?? prev.address.city,
+            state: data.uf ?? prev.address.state,
+            country: 'Brasil',
+          },
+        }));
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Erro ao buscar CEP', error);
+        }
+      }
+    };
+
+    fetchAddress();
+    return () => controller.abort();
+  }, [formData.address.cep]);
 
   const handleFieldChange = (field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -202,16 +258,41 @@ export default function SignupRegister() {
       email: result.data.email,
       phone: result.data.phone,
       document: result.data.document,
+      responsible: result.data.responsible,
+      planType: billing === 'annual' ? 'annual' : 'monthly',
+      plan: planLabel,
+      commercialStatus: 'pending',
+      paymentPreference: result.data.paymentPreference,
+      address: {
+        state: result.data.address.state,
+        street: result.data.address.street,
+        number: result.data.address.number,
+        neighborhood: result.data.address.neighborhood,
+        city: result.data.address.city,
+        country: result.data.address.country,
+        cep: result.data.address.cep,
+      },
       status: 'pending' as const,
       notes: result.data.promoCode ? `Código promocional: ${result.data.promoCode}` : '',
       createdAt: now.toISOString(),
     };
 
-    console.log('New client registration (in-memory only):', newClientData.id);
+    console.log('New client registration (local storage):', newClientData.id);
+
+    try {
+      const storedClients = localStorage.getItem(LOCAL_CLIENTS_KEY);
+      const parsedClients = storedClients ? JSON.parse(storedClients) : [];
+      const updatedClients = Array.isArray(parsedClients)
+        ? [newClientData, ...parsedClients]
+        : [newClientData];
+      localStorage.setItem(LOCAL_CLIENTS_KEY, JSON.stringify(updatedClients));
+    } catch (error) {
+      console.error('Erro ao salvar cliente localmente', error);
+    }
 
     toast({
-      title: 'Cadastro enviado',
-      description: 'Os dados foram processados. (Dados armazenados apenas em memória)',
+      title: 'Compra confirmada',
+      description: 'Os dados foram registrados e adicionados à lista de clientes.',
     });
 
     setFormData((prev) => ({
@@ -530,6 +611,21 @@ export default function SignupRegister() {
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
+                    <label className="text-sm font-medium" htmlFor="cep">
+                      CEP *
+                    </label>
+                    <Input
+                      id="cep"
+                      value={formData.address.cep}
+                      onChange={(event) => handleCepChange(event.target.value)}
+                      placeholder="00000-000"
+                      className={formErrors.address?.cep ? 'border-destructive' : ''}
+                    />
+                    {formErrors.address?.cep && (
+                      <p className="text-sm text-destructive">{formErrors.address.cep}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
                     <label className="text-sm font-medium" htmlFor="state">
                       UF *
                     </label>
@@ -634,26 +730,11 @@ export default function SignupRegister() {
                       <p className="text-sm text-destructive">{formErrors.address.country}</p>
                     )}
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium" htmlFor="cep">
-                      CEP *
-                    </label>
-                    <Input
-                      id="cep"
-                      value={formData.address.cep}
-                      onChange={(event) => handleCepChange(event.target.value)}
-                      placeholder="00000-000"
-                      className={formErrors.address?.cep ? 'border-destructive' : ''}
-                    />
-                    {formErrors.address?.cep && (
-                      <p className="text-sm text-destructive">{formErrors.address.cep}</p>
-                    )}
-                  </div>
                 </div>
               </div>
 
               <div className="flex justify-end">
-                <Button type="submit">Salvar cadastro</Button>
+                <Button type="submit">Confirmar compra</Button>
               </div>
             </form>
           </CardContent>

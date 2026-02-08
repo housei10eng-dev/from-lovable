@@ -100,25 +100,26 @@ export const clientSchema = z.object({
 
 export type ClientFormData = z.infer<typeof clientSchema>;
 
-export const signupRegisterSchema = z.object({
-  name: z
+export const signupRegisterSchema = z
+  .object({
+    name: z
     .string()
     .trim()
     .min(1, { message: 'Nome é obrigatório' })
     .max(255, { message: 'Nome deve ter no máximo 255 caracteres' }),
-  document: z
+    document: z
     .string()
     .trim()
     .min(1, { message: 'CPF/CNPJ é obrigatório' })
     .refine((value) => cpfRegex.test(value) || cnpjRegex.test(value), {
       message: 'CPF ou CNPJ inválido',
     }),
-  responsible: z
+    responsible: z
     .string()
     .trim()
     .min(1, { message: 'Nome do responsável é obrigatório' })
     .max(255, { message: 'Nome do responsável deve ter no máximo 255 caracteres' }),
-  promoCode: z.preprocess(
+    promoCode: z.preprocess(
     (value) => {
       if (typeof value === 'string' && value.trim() === '') {
         return null;
@@ -131,24 +132,24 @@ export const signupRegisterSchema = z.object({
       .max(50, { message: 'Código promocional deve ter no máximo 50 caracteres' })
       .nullable()
       .optional()
-  ),
-  email: z
+    ),
+    email: z
     .string()
     .trim()
     .min(1, { message: 'E-mail é obrigatório' })
     .email({ message: 'E-mail inválido' })
     .max(255, { message: 'E-mail deve ter no máximo 255 caracteres' }),
-  phone: z
+    phone: z
     .string()
     .trim()
     .min(1, { message: 'Telefone é obrigatório' })
     .regex(phoneRegex, { message: 'Telefone deve estar no formato (00) 00000-0000' }),
-  paymentPreference: z.enum(['CARTAO', 'PIX', 'BOLETO'], {
+    paymentPreference: z.enum(['CARTAO', 'PIX', 'BOLETO'], {
     errorMap: () => ({ message: 'Preferência de pagamento inválida' }),
-  }),
-  plan: z.string().trim().min(1, { message: 'Plano é obrigatório' }),
-  status: z.string().trim().min(1, { message: 'Status é obrigatório' }),
-  address: z.object({
+    }),
+    plan: z.string().trim().min(1, { message: 'Plano é obrigatório' }),
+    status: z.string().trim().min(1, { message: 'Status é obrigatório' }),
+    address: z.object({
     state: z.string().trim().min(2, { message: 'UF é obrigatória' }).max(2),
     street: z
       .string()
@@ -180,8 +181,21 @@ export const signupRegisterSchema = z.object({
       .trim()
       .min(1, { message: 'CEP é obrigatório' })
       .regex(cepRegex, { message: 'CEP deve estar no formato 00000-000' }),
-  }),
-});
+    }),
+  })
+  .superRefine((data, ctx) => {
+    if (cnpjRegex.test(data.document)) {
+      const normalizedName = data.name.trim().toLowerCase();
+      const normalizedResponsible = data.responsible.trim().toLowerCase();
+      if (normalizedName && normalizedName === normalizedResponsible) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['responsible'],
+          message: 'Nome do responsável deve ser diferente do nome para CNPJ',
+        });
+      }
+    }
+  });
 
 export type SignupRegisterFormData = z.infer<typeof signupRegisterSchema>;
 
