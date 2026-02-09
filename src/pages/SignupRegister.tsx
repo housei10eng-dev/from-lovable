@@ -49,6 +49,19 @@ const BILLING_LABELS: Record<string, string> = {
   annual: 'Anual',
 };
 
+const AUDIT_LOGS_KEY = 'adminAuditLogs';
+
+type AuditLog = {
+  id: string;
+  action: 'CREATE' | 'UPDATE' | 'DELETE';
+  entityType: string;
+  entityId: string;
+  userEmail: string;
+  oldValues: Record<string, unknown> | null;
+  newValues: Record<string, unknown> | null;
+  createdAt: string;
+};
+
 interface FormErrors {
   name?: string;
   document?: string;
@@ -359,6 +372,48 @@ export default function SignupRegister() {
       toast({
         title: 'Cadastro enviado',
         description: 'Os dados foram processados e incluídos na lista de clientes.',
+      });
+
+      const logAuditEntry = (payload: Record<string, unknown>) => {
+        if (typeof window === 'undefined') return;
+        try {
+          const storedLogs = localStorage.getItem(AUDIT_LOGS_KEY);
+          const parsedLogs = storedLogs ? JSON.parse(storedLogs) : [];
+          const existingLogs = Array.isArray(parsedLogs) ? parsedLogs : [];
+          const logId =
+            typeof crypto !== 'undefined' && 'randomUUID' in crypto
+              ? crypto.randomUUID()
+              : `log-${Date.now()}`;
+          const newLog: AuditLog = {
+            id: logId,
+            action: 'CREATE',
+            entityType: 'usuario',
+            entityId: String(payload.document || payload.email || logId),
+            userEmail: String(payload.email || 'sistema'),
+            oldValues: null,
+            newValues: payload,
+            createdAt: new Date().toISOString(),
+          };
+          localStorage.setItem(
+            AUDIT_LOGS_KEY,
+            JSON.stringify([newLog, ...existingLogs])
+          );
+        } catch (storageError) {
+          console.error('Erro ao salvar log de auditoria', storageError);
+        }
+      };
+
+      logAuditEntry({
+        name: result.data.name,
+        document: result.data.document,
+        responsible: result.data.responsible,
+        promoCode: result.data.promoCode || null,
+        email: result.data.email,
+        phone: result.data.phone,
+        paymentPreference: result.data.paymentPreference,
+        plan: mappedPlan,
+        status: result.data.status,
+        address: result.data.address,
       });
 
       setFormData((prev) => ({
