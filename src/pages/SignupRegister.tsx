@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,8 @@ import {
   getDocumentType,
   signupRegisterSchema,
 } from '@/lib/validation/clientSchema';
-import { ArrowLeft, CreditCard, QrCode, FileText } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { ArrowLeft, CreditCard, Eye, EyeOff, FileText, QrCode } from 'lucide-react';
 
 const STATES = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
@@ -39,47 +40,14 @@ const BILLING_LABELS: Record<string, string> = {
   annual: 'Anual',
 };
 
-const ADMIN_COMPANIES_KEY = 'adminCompanies';
-const AUDIT_LOGS_KEY = 'adminAuditLogs';
-
-type AdminCompany = {
-  id: string;
-  name: string;
-  responsible: string;
-  email: string;
-  phone: string;
-  document: string;
-  plan: 'pro' | 'business' | 'enterprise';
-  status: 'pending';
-  address: {
-    state: string;
-    street: string;
-    number: string;
-    neighborhood: string;
-    city: string;
-    country: string;
-    cep: string;
-  };
-  createdAt: string;
-};
-
-type AuditLog = {
-  id: string;
-  action: 'CREATE';
-  entityType: 'empresa';
-  entityId: string;
-  userEmail: string;
-  oldValues: null;
-  newValues: Record<string, unknown>;
-  createdAt: string;
-};
-
 interface FormErrors {
   name?: string;
   document?: string;
   responsible?: string;
   promoCode?: string;
   email?: string;
+  password?: string;
+  confirmPassword?: string;
   phone?: string;
   paymentPreference?: string;
   plan?: string;
@@ -96,7 +64,6 @@ interface FormErrors {
 }
 
 export default function SignupRegister() {
-  const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
@@ -115,12 +82,16 @@ export default function SignupRegister() {
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isNameLocked, setIsNameLocked] = useState(false);
   const [lastCnpjLookup, setLastCnpjLookup] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     document: '',
     responsible: '',
     promoCode: '',
     email: '',
+    password: '',
+    confirmPassword: '',
     phone: '',
     paymentPreference: 'CARTAO' as 'CARTAO' | 'PIX' | 'BOLETO',
     plan: planLabel,
@@ -318,7 +289,7 @@ export default function SignupRegister() {
     }
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const result = signupRegisterSchema.safeParse(formData);
@@ -345,101 +316,148 @@ export default function SignupRegister() {
     }
 
     const now = new Date();
-    const newCompanyData: AdminCompany = {
-      id:
-        typeof crypto !== 'undefined' && 'randomUUID' in crypto
-          ? crypto.randomUUID()
-          : `${Date.now()}`,
-      name: result.data.name,
-      responsible: result.data.responsible,
-      email: result.data.email,
-      phone: result.data.phone,
-      document: result.data.document,
-      plan: planFromParams as AdminCompany['plan'],
-      status: 'pending',
-      address: {
-        state: result.data.address.state,
-        street: result.data.address.street,
-        number: result.data.address.number,
-        neighborhood: result.data.address.neighborhood,
-        city: result.data.address.city,
-        country: result.data.address.country,
-        cep: result.data.address.cep,
-      },
-      createdAt: now.toISOString(),
-    };
 
-    const newAuditLog: AuditLog = {
-      id:
-        typeof crypto !== 'undefined' && 'randomUUID' in crypto
-          ? crypto.randomUUID()
-          : `${Date.now()}-audit`,
-      action: 'CREATE',
-      entityType: 'empresa',
-      entityId: newCompanyData.id,
-      userEmail: result.data.email,
-      oldValues: null,
-      newValues: {
-        name: result.data.name,
-        responsible: result.data.responsible,
-        document: result.data.document,
-        phone: result.data.phone,
+    try {
+      const { data: signupData, error: signupError } = await supabase.auth.signUp({
         email: result.data.email,
-        plan: planFromParams,
-        status: 'pending',
-        address: result.data.address,
-      },
-      createdAt: now.toISOString(),
-    };
+        password: result.data.password,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: {
+            full_name: result.data.responsible,
+          },
+        },
+      });
 
-    if (typeof window !== 'undefined') {
-      try {
-        const storedCompanies = localStorage.getItem(ADMIN_COMPANIES_KEY);
-        const parsedCompanies = storedCompanies ? JSON.parse(storedCompanies) : [];
-        const nextCompanies = Array.isArray(parsedCompanies)
-          ? ([newCompanyData, ...parsedCompanies] as AdminCompany[])
-          : [newCompanyData];
-        localStorage.setItem(ADMIN_COMPANIES_KEY, JSON.stringify(nextCompanies));
-
-        const storedLogs = localStorage.getItem(AUDIT_LOGS_KEY);
-        const parsedLogs = storedLogs ? JSON.parse(storedLogs) : [];
-        const nextLogs = Array.isArray(parsedLogs)
-          ? ([newAuditLog, ...parsedLogs] as AuditLog[])
-          : [newAuditLog];
-        localStorage.setItem(AUDIT_LOGS_KEY, JSON.stringify(nextLogs));
-      } catch (error) {
-        console.error('Erro ao salvar empresa local', error);
+      if (signupError) {
+        throw signupError;
       }
+
+      const userId = signupData.user?.id;
+      if (!userId) {
+        throw new Error('Não foi possível criar o usuário.');
+      }
+
+      const tenantId =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random()}`;
+
+      const { data: companyRecord, error: companyError } = await supabase
+        .from('companies')
+        .insert({
+          tenant_id: tenantId,
+          name: result.data.name,
+          document: result.data.document,
+          responsible: result.data.responsible,
+          email: result.data.email,
+          phone: result.data.phone,
+          plan: planFromParams,
+          status: 'pending',
+          owner_id: userId,
+          address_state: result.data.address.state,
+          address_street: result.data.address.street,
+          address_number: result.data.address.number,
+          address_neighborhood: result.data.address.neighborhood,
+          address_city: result.data.address.city,
+          address_country: result.data.address.country,
+          address_cep: result.data.address.cep,
+        })
+        .select('id')
+        .single();
+
+      if (companyError) {
+        throw companyError;
+      }
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          tenant_id: tenantId,
+          phone: result.data.phone,
+          scope: 'tenant',
+        })
+        .eq('id', userId);
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      const { error: roleError } = await supabase.from('user_roles').insert({
+        user_id: userId,
+        role: 'tenant_admin',
+      });
+
+      if (roleError) {
+        throw roleError;
+      }
+
+      const { error: auditError } = await supabase.from('audit_logs').insert({
+        user_id: userId,
+        user_email: result.data.email,
+        action: 'CREATE',
+        entity_type: 'company',
+        entity_id: companyRecord?.id ?? null,
+        old_values: null,
+        new_values: {
+          name: result.data.name,
+          responsible: result.data.responsible,
+          document: result.data.document,
+          phone: result.data.phone,
+          email: result.data.email,
+          plan: planFromParams,
+          status: 'pending',
+          address: result.data.address,
+        },
+        tenant_id: tenantId,
+        created_at: now.toISOString(),
+      });
+
+      if (auditError) {
+        throw auditError;
+      }
+
+      toast({
+        title: 'Cadastro enviado',
+        description: 'Os dados foram processados e incluídos na lista de clientes.',
+      });
+
+      setFormData((prev) => ({
+        ...prev,
+        name: '',
+        document: '',
+        responsible: '',
+        promoCode: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+        phone: '',
+        paymentPreference: 'CARTAO',
+        address: {
+          ...prev.address,
+          state: '',
+          street: '',
+          number: '',
+          neighborhood: '',
+          city: '',
+          cep: '',
+        },
+      }));
+      setIsNameLocked(false);
+      setLastCnpjLookup(null);
+      setFormErrors({});
+      navigate('/login');
+    } catch (error) {
+      console.error('Erro ao cadastrar empresa', error);
+      toast({
+        title: 'Erro ao cadastrar',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível concluir o cadastro. Tente novamente.',
+        variant: 'destructive',
+      });
     }
-
-    toast({
-      title: 'Cadastro enviado',
-      description: 'Os dados foram processados e incluídos na lista de clientes.',
-    });
-
-    setFormData((prev) => ({
-      ...prev,
-      name: '',
-      document: '',
-      responsible: '',
-      promoCode: '',
-      email: '',
-      phone: '',
-      paymentPreference: 'CARTAO',
-      address: {
-        ...prev.address,
-        state: '',
-        street: '',
-        number: '',
-        neighborhood: '',
-        city: '',
-        cep: '',
-      },
-    }));
-    setIsNameLocked(false);
-    setLastCnpjLookup(null);
-    setFormErrors({});
-    navigate('/login');
   };
 
   const renderPaymentDetails = () => {
@@ -661,6 +679,70 @@ export default function SignupRegister() {
                   />
                   {formErrors.email && (
                     <p className="text-sm text-destructive">{formErrors.email}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor="password">
+                    Senha *
+                  </label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={formData.password}
+                      onChange={(event) => handleFieldChange('password', event.target.value)}
+                      placeholder="Digite sua senha"
+                      className={formErrors.password ? 'border-destructive pr-10' : 'pr-10'}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                      aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {formErrors.password && (
+                    <p className="text-sm text-destructive">{formErrors.password}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor="confirmPassword">
+                    Confirmar senha *
+                  </label>
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={formData.confirmPassword}
+                      onChange={(event) =>
+                        handleFieldChange('confirmPassword', event.target.value)
+                      }
+                      placeholder="Confirme sua senha"
+                      className={
+                        formErrors.confirmPassword ? 'border-destructive pr-10' : 'pr-10'
+                      }
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword((prev) => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                      aria-label={
+                        showConfirmPassword ? 'Ocultar confirmação de senha' : 'Mostrar confirmação de senha'
+                      }
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                  {formErrors.confirmPassword && (
+                    <p className="text-sm text-destructive">
+                      {formErrors.confirmPassword}
+                    </p>
                   )}
                 </div>
                 <div className="space-y-2">
