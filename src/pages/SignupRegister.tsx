@@ -30,9 +30,18 @@ const STATES = [
 ];
 
 const PLAN_LABELS: Record<string, string> = {
-  pro: 'Pro',
-  business: 'Business',
+  starter: 'Starter',
+  professional: 'Professional',
   enterprise: 'Enterprise',
+};
+
+// Map URL plan params to valid database enum values
+const PLAN_TO_DB: Record<string, string> = {
+  starter: 'starter',
+  pro: 'starter',
+  professional: 'professional',
+  business: 'professional',
+  enterprise: 'enterprise',
 };
 
 const BILLING_LABELS: Record<string, string> = {
