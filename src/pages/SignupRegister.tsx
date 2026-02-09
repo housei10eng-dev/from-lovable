@@ -30,9 +30,18 @@ const STATES = [
 ];
 
 const PLAN_LABELS: Record<string, string> = {
-  pro: 'Pro',
-  business: 'Business',
+  starter: 'Starter',
+  professional: 'Professional',
   enterprise: 'Enterprise',
+};
+
+// Map URL plan params to valid database enum values
+const PLAN_TO_DB: Record<string, string> = {
+  starter: 'starter',
+  pro: 'starter',
+  professional: 'professional',
+  business: 'professional',
+  enterprise: 'enterprise',
 };
 
 const BILLING_LABELS: Record<string, string> = {
@@ -356,7 +365,7 @@ export default function SignupRegister() {
           document: result.data.document,
           email: result.data.email,
           phone: result.data.phone,
-          plan: planFromParams,
+          plan: (PLAN_TO_DB[planFromParams] || 'starter') as any,
           status: 'pending',
           owner_id: userId,
           responsible: result.data.responsible,
