@@ -111,13 +111,6 @@ export type Database = {
       }
       companies: {
         Row: {
-          address_city: string | null
-          address_country: string | null
-          address_cep: string | null
-          address_neighborhood: string | null
-          address_number: string | null
-          address_state: string | null
-          address_street: string | null
           collaborators_count: number
           created_at: string
           document: string | null
@@ -128,19 +121,11 @@ export type Database = {
           owner_id: string | null
           phone: string | null
           plan: Database["public"]["Enums"]["subscription_plan"]
-          responsible: string | null
           status: Database["public"]["Enums"]["subscription_status"]
           tenant_id: string
           updated_at: string
         }
         Insert: {
-          address_city?: string | null
-          address_country?: string | null
-          address_cep?: string | null
-          address_neighborhood?: string | null
-          address_number?: string | null
-          address_state?: string | null
-          address_street?: string | null
           collaborators_count?: number
           created_at?: string
           document?: string | null
@@ -151,19 +136,11 @@ export type Database = {
           owner_id?: string | null
           phone?: string | null
           plan?: Database["public"]["Enums"]["subscription_plan"]
-          responsible?: string | null
           status?: Database["public"]["Enums"]["subscription_status"]
           tenant_id?: string
           updated_at?: string
         }
         Update: {
-          address_city?: string | null
-          address_country?: string | null
-          address_cep?: string | null
-          address_neighborhood?: string | null
-          address_number?: string | null
-          address_state?: string | null
-          address_street?: string | null
           collaborators_count?: number
           created_at?: string
           document?: string | null
@@ -174,7 +151,6 @@ export type Database = {
           owner_id?: string | null
           phone?: string | null
           plan?: Database["public"]["Enums"]["subscription_plan"]
-          responsible?: string | null
           status?: Database["public"]["Enums"]["subscription_status"]
           tenant_id?: string
           updated_at?: string
@@ -338,7 +314,7 @@ export type Database = {
       app_role: "platform_admin" | "employee" | "tenant_admin" | "tenant_user"
       app_scope: "admin" | "tenant"
       payment_status: "pending" | "paid" | "failed" | "refunded" | "overdue"
-      subscription_plan: "starter" | "professional" | "enterprise" | "pro" | "business"
+      subscription_plan: "starter" | "professional" | "enterprise"
       subscription_status:
         | "active"
         | "inactive"
@@ -475,7 +451,7 @@ export const Constants = {
       app_role: ["platform_admin", "employee", "tenant_admin", "tenant_user"],
       app_scope: ["admin", "tenant"],
       payment_status: ["pending", "paid", "failed", "refunded", "overdue"],
-      subscription_plan: ["starter", "professional", "enterprise", "pro", "business"],
+      subscription_plan: ["starter", "professional", "enterprise"],
       subscription_status: [
         "active",
         "inactive",
