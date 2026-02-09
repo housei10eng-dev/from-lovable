@@ -328,107 +328,32 @@ export default function SignupRegister() {
       return;
     }
 
-    const now = new Date();
-
     try {
       setIsSubmitting(true);
-      const { data: signupData, error: signupError } = await supabase.auth.signUp({
-        email: result.data.email,
-        password: result.data.password,
-        options: {
-          emailRedirectTo: window.location.origin,
-          data: {
-            full_name: result.data.responsible,
-          },
-        },
-      });
 
-      if (signupError) {
-        throw signupError;
-      }
+      const mappedPlan = PLAN_TO_DB[planFromParams] || 'starter';
 
-      const userId = signupData.user?.id ?? signupData.session?.user?.id;
-      if (!userId) {
-        throw new Error('Não foi possível criar o usuário.');
-      }
-
-      const tenantId =
-        typeof crypto !== 'undefined' && 'randomUUID' in crypto
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random()}`;
-
-      const { data: companyRecord, error: companyError } = await supabase
-        .from('companies')
-        .insert({
-          tenant_id: tenantId,
-          name: result.data.name,
-          document: result.data.document,
+      const response = await supabase.functions.invoke('signup-company', {
+        body: {
           email: result.data.email,
-          phone: result.data.phone,
-          plan: (PLAN_TO_DB[planFromParams] || 'starter') as any,
-          status: 'pending',
-          owner_id: userId,
-          responsible: result.data.responsible,
-          address_state: result.data.address.state,
-          address_street: result.data.address.street,
-          address_number: result.data.address.number,
-          address_neighborhood: result.data.address.neighborhood,
-          address_city: result.data.address.city,
-          address_country: result.data.address.country,
-          address_cep: result.data.address.cep,
-        } as any)
-        .select('id')
-        .single();
-
-      if (companyError) {
-        throw companyError;
-      }
-
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          tenant_id: tenantId,
-          phone: result.data.phone,
-          scope: 'tenant',
-        })
-        .eq('id', userId);
-
-      if (profileError) {
-        throw profileError;
-      }
-
-      const { error: roleError } = await supabase.from('user_roles').insert({
-        user_id: userId,
-        role: 'tenant_admin',
-      });
-
-      if (roleError) {
-        throw roleError;
-      }
-
-      const { error: auditError } = await supabase.from('audit_logs').insert({
-        user_id: userId,
-        user_email: result.data.email,
-        action: 'CREATE',
-        entity_type: 'company',
-        entity_id: companyRecord?.id ?? null,
-        old_values: null,
-        new_values: {
-          name: result.data.name,
-          responsible: result.data.responsible,
+          password: result.data.password,
+          fullName: result.data.responsible,
+          companyName: result.data.name,
           document: result.data.document,
+          responsible: result.data.responsible,
           phone: result.data.phone,
-          email: result.data.email,
-          plan: planFromParams,
-          status: 'pending',
+          plan: mappedPlan,
           address: result.data.address,
         },
-        tenant_id: tenantId,
-        created_at: now.toISOString(),
       });
 
-      if (auditError) {
-        throw auditError;
+      if (response.error) {
+        throw new Error(response.error.message || 'Erro ao cadastrar');
+      }
+
+      const data = response.data;
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
       toast({
