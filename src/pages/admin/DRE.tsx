@@ -6,26 +6,26 @@ import { TrendingUp, TrendingDown, DollarSign, MinusCircle, PlusCircle } from 'l
 const dreData = {
   periodo: 'Janeiro 2026',
   receitas: {
-    receitaBruta: 152890.00,
-    descontos: -3250.00,
-    receitaLiquida: 149640.00,
+    receitaBruta: 0,
+    descontos: 0,
+    receitaLiquida: 0,
   },
   custosServicos: {
-    infraestrutura: -8500.00,
-    suporte: -12300.00,
-    total: -20800.00,
+    infraestrutura: 0,
+    suporte: 0,
+    total: 0,
   },
   despesasOperacionais: {
-    pessoal: -45000.00,
-    marketing: -15000.00,
-    administrativo: -8500.00,
-    total: -68500.00,
+    pessoal: 0,
+    marketing: 0,
+    administrativo: 0,
+    total: 0,
   },
   resultados: {
-    lucroBruto: 128840.00,
-    lucroOperacional: 60340.00,
-    impostos: -9051.00,
-    lucroLiquido: 51289.00,
+    lucroBruto: 0,
+    lucroOperacional: 0,
+    impostos: 0,
+    lucroLiquido: 0,
   },
 };
 
@@ -94,8 +94,13 @@ export default function DRE() {
     }).format(val);
   };
 
-  const margemBruta = ((dreData.resultados.lucroBruto / dreData.receitas.receitaLiquida) * 100).toFixed(1);
-  const margemLiquida = ((dreData.resultados.lucroLiquido / dreData.receitas.receitaLiquida) * 100).toFixed(1);
+  const receitaLiquida = dreData.receitas.receitaLiquida;
+  const margemBruta = receitaLiquida
+    ? ((dreData.resultados.lucroBruto / receitaLiquida) * 100).toFixed(1)
+    : '0.0';
+  const margemLiquida = receitaLiquida
+    ? ((dreData.resultados.lucroLiquido / receitaLiquida) * 100).toFixed(1)
+    : '0.0';
 
   return (
     <div className="space-y-6">

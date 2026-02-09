@@ -21,59 +21,19 @@ import {
 } from '@/components/ui/dialog';
 import { Search, Filter, Eye, FileText, Edit, Trash2, Plus, UserCircle } from 'lucide-react';
 
+type AuditLog = {
+  id: string;
+  action: 'CREATE' | 'UPDATE' | 'DELETE';
+  entityType: string;
+  entityId: string;
+  userEmail: string;
+  oldValues: Record<string, unknown> | null;
+  newValues: Record<string, unknown> | null;
+  createdAt: string;
+};
+
 // Mock audit logs
-const mockAuditLogs = [
-  {
-    id: '1',
-    action: 'UPDATE',
-    entityType: 'company',
-    entityId: 'comp-123',
-    userEmail: 'admin@crmpro.com',
-    oldValues: { status: 'pending' },
-    newValues: { status: 'active' },
-    createdAt: '2026-02-06T10:30:00Z',
-  },
-  {
-    id: '2',
-    action: 'CREATE',
-    entityType: 'company',
-    entityId: 'comp-124',
-    userEmail: 'admin@crmpro.com',
-    oldValues: null,
-    newValues: { name: 'New Company', plan: 'starter' },
-    createdAt: '2026-02-05T15:45:00Z',
-  },
-  {
-    id: '3',
-    action: 'UPDATE',
-    entityType: 'payment',
-    entityId: 'pay-456',
-    userEmail: 'finance@crmpro.com',
-    oldValues: { status: 'pending' },
-    newValues: { status: 'paid' },
-    createdAt: '2026-02-05T11:20:00Z',
-  },
-  {
-    id: '4',
-    action: 'DELETE',
-    entityType: 'employee',
-    entityId: 'emp-789',
-    userEmail: 'hr@crmpro.com',
-    oldValues: { name: 'John Doe', status: 'active' },
-    newValues: null,
-    createdAt: '2026-02-04T09:00:00Z',
-  },
-  {
-    id: '5',
-    action: 'UPDATE',
-    entityType: 'company',
-    entityId: 'comp-100',
-    userEmail: 'admin@crmpro.com',
-    oldValues: { plan: 'starter', monthlyValue: 99 },
-    newValues: { plan: 'professional', monthlyValue: 299 },
-    createdAt: '2026-02-03T14:30:00Z',
-  },
-];
+const mockAuditLogs: AuditLog[] = [];
 
 const actionIcons: Record<string, typeof Edit> = {
   CREATE: Plus,
@@ -89,7 +49,7 @@ const actionColors: Record<string, string> = {
 
 export default function Audit() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedLog, setSelectedLog] = useState<typeof mockAuditLogs[0] | null>(null);
+  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
   const filteredLogs = mockAuditLogs.filter(
     (log) =>
@@ -118,7 +78,7 @@ export default function Audit() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total de Logs</p>
-                <p className="text-2xl font-bold">12.453</p>
+                <p className="text-2xl font-bold">0</p>
               </div>
             </div>
           </CardContent>
@@ -131,7 +91,7 @@ export default function Audit() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Criações</p>
-                <p className="text-2xl font-bold">3.421</p>
+                <p className="text-2xl font-bold">0</p>
               </div>
             </div>
           </CardContent>
@@ -144,7 +104,7 @@ export default function Audit() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Atualizações</p>
-                <p className="text-2xl font-bold">8.234</p>
+                <p className="text-2xl font-bold">0</p>
               </div>
             </div>
           </CardContent>
@@ -157,7 +117,7 @@ export default function Audit() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Exclusões</p>
-                <p className="text-2xl font-bold">798</p>
+                <p className="text-2xl font-bold">0</p>
               </div>
             </div>
           </CardContent>

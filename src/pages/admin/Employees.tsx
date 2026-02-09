@@ -20,44 +20,15 @@ import {
 import { Search, Plus, MoreHorizontal, Eye, Edit, Trash2 } from 'lucide-react';
 
 // Mock employees
-const mockEmployees = [
-  {
-    id: '1',
-    fullName: 'João Silva',
-    email: 'joao.silva@crmpro.com',
-    role: 'platform_admin',
-    department: 'Tecnologia',
-    status: 'active',
-    createdAt: '2025-06-01',
-  },
-  {
-    id: '2',
-    fullName: 'Maria Santos',
-    email: 'maria.santos@crmpro.com',
-    role: 'employee',
-    department: 'Vendas',
-    status: 'active',
-    createdAt: '2025-08-15',
-  },
-  {
-    id: '3',
-    fullName: 'Pedro Costa',
-    email: 'pedro.costa@crmpro.com',
-    role: 'employee',
-    department: 'Suporte',
-    status: 'active',
-    createdAt: '2025-10-01',
-  },
-  {
-    id: '4',
-    fullName: 'Ana Oliveira',
-    email: 'ana.oliveira@crmpro.com',
-    role: 'employee',
-    department: 'Financeiro',
-    status: 'inactive',
-    createdAt: '2025-07-20',
-  },
-];
+const mockEmployees: Array<{
+  id: string;
+  fullName: string;
+  email: string;
+  role: 'platform_admin' | 'employee';
+  department: string;
+  status: 'active' | 'inactive';
+  createdAt: string;
+}> = [];
 
 const roleLabels: Record<string, string> = {
   platform_admin: 'Administrador',
