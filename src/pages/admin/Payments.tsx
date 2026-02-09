@@ -14,53 +14,15 @@ import {
 import { Search, Filter, Download, CreditCard, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 
 // Mock payments
-const mockPayments = [
-  {
-    id: '1',
-    companyName: 'TechCorp Solutions',
-    amount: 2999.00,
-    status: 'paid',
-    dueDate: '2026-02-05',
-    paidAt: '2026-02-03',
-    description: 'Mensalidade Enterprise - Fev/2026',
-  },
-  {
-    id: '2',
-    companyName: 'Digital Marketing Pro',
-    amount: 599.00,
-    status: 'pending',
-    dueDate: '2026-02-10',
-    paidAt: null,
-    description: 'Mensalidade Professional - Fev/2026',
-  },
-  {
-    id: '3',
-    companyName: 'StartupXYZ',
-    amount: 199.00,
-    status: 'overdue',
-    dueDate: '2026-01-25',
-    paidAt: null,
-    description: 'Mensalidade Starter - Jan/2026',
-  },
-  {
-    id: '4',
-    companyName: 'E-commerce Brasil',
-    amount: 599.00,
-    status: 'paid',
-    dueDate: '2026-02-01',
-    paidAt: '2026-01-30',
-    description: 'Mensalidade Professional - Fev/2026',
-  },
-  {
-    id: '5',
-    companyName: 'ConsultFirm',
-    amount: 2999.00,
-    status: 'failed',
-    dueDate: '2026-01-15',
-    paidAt: null,
-    description: 'Mensalidade Enterprise - Jan/2026',
-  },
-];
+const mockPayments: Array<{
+  id: string;
+  companyName: string;
+  amount: number;
+  status: 'paid' | 'pending' | 'overdue' | 'failed';
+  dueDate: string;
+  paidAt: string | null;
+  description: string;
+}> = [];
 
 const statusConfig: Record<string, { label: string; icon: typeof CheckCircle; className: string }> = {
   paid: { label: 'Pago', icon: CheckCircle, className: 'status-active' },

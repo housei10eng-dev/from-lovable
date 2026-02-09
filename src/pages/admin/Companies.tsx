@@ -20,58 +20,16 @@ import {
 import { Search, Filter, MoreHorizontal, Eye, Edit, Trash2, Plus } from 'lucide-react';
 
 // Mock data
-const mockCompanies = [
-  {
-    id: '1',
-    name: 'TechCorp Solutions',
-    document: '12.345.678/0001-90',
-    email: 'contato@techcorp.com',
-    phone: '(11) 99999-1234',
-    plan: 'enterprise',
-    status: 'active',
-    createdAt: '2026-01-15',
-  },
-  {
-    id: '2',
-    name: 'Digital Marketing Pro',
-    document: '23.456.789/0001-12',
-    email: 'admin@digitalmarketing.com',
-    phone: '(21) 98888-5678',
-    plan: 'professional',
-    status: 'active',
-    createdAt: '2026-01-20',
-  },
-  {
-    id: '3',
-    name: 'StartupXYZ',
-    document: '34.567.890/0001-23',
-    email: 'hello@startupxyz.io',
-    phone: '(31) 97777-9012',
-    plan: 'starter',
-    status: 'pending',
-    createdAt: '2026-02-01',
-  },
-  {
-    id: '4',
-    name: 'E-commerce Brasil',
-    document: '45.678.901/0001-34',
-    email: 'suporte@ecommercebr.com',
-    phone: '(41) 96666-3456',
-    plan: 'professional',
-    status: 'active',
-    createdAt: '2026-02-03',
-  },
-  {
-    id: '5',
-    name: 'ConsultFirm',
-    document: '56.789.012/0001-45',
-    email: 'info@consultfirm.com.br',
-    phone: '(51) 95555-7890',
-    plan: 'enterprise',
-    status: 'inactive',
-    createdAt: '2025-12-10',
-  },
-];
+const mockCompanies: Array<{
+  id: string;
+  name: string;
+  document: string;
+  email: string;
+  phone: string;
+  plan: string;
+  status: string;
+  createdAt: string;
+}> = [];
 
 const planLabels: Record<string, string> = {
   starter: 'Starter',
