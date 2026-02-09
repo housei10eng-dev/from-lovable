@@ -40,15 +40,37 @@ const BILLING_LABELS: Record<string, string> = {
 };
 
 const ADMIN_COMPANIES_KEY = 'adminCompanies';
+const AUDIT_LOGS_KEY = 'adminAuditLogs';
 
 type AdminCompany = {
   id: string;
   name: string;
+  responsible: string;
   email: string;
   phone: string;
   document: string;
   plan: 'pro' | 'business' | 'enterprise';
   status: 'pending';
+  address: {
+    state: string;
+    street: string;
+    number: string;
+    neighborhood: string;
+    city: string;
+    country: string;
+    cep: string;
+  };
+  createdAt: string;
+};
+
+type AuditLog = {
+  id: string;
+  action: 'CREATE';
+  entityType: 'empresa';
+  entityId: string;
+  userEmail: string;
+  oldValues: null;
+  newValues: Record<string, unknown>;
   createdAt: string;
 };
 
@@ -329,11 +351,44 @@ export default function SignupRegister() {
           ? crypto.randomUUID()
           : `${Date.now()}`,
       name: result.data.name,
+      responsible: result.data.responsible,
       email: result.data.email,
       phone: result.data.phone,
       document: result.data.document,
       plan: planFromParams as AdminCompany['plan'],
       status: 'pending',
+      address: {
+        state: result.data.address.state,
+        street: result.data.address.street,
+        number: result.data.address.number,
+        neighborhood: result.data.address.neighborhood,
+        city: result.data.address.city,
+        country: result.data.address.country,
+        cep: result.data.address.cep,
+      },
+      createdAt: now.toISOString(),
+    };
+
+    const newAuditLog: AuditLog = {
+      id:
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-audit`,
+      action: 'CREATE',
+      entityType: 'empresa',
+      entityId: newCompanyData.id,
+      userEmail: result.data.email,
+      oldValues: null,
+      newValues: {
+        name: result.data.name,
+        responsible: result.data.responsible,
+        document: result.data.document,
+        phone: result.data.phone,
+        email: result.data.email,
+        plan: planFromParams,
+        status: 'pending',
+        address: result.data.address,
+      },
       createdAt: now.toISOString(),
     };
 
@@ -345,6 +400,13 @@ export default function SignupRegister() {
           ? ([newCompanyData, ...parsedCompanies] as AdminCompany[])
           : [newCompanyData];
         localStorage.setItem(ADMIN_COMPANIES_KEY, JSON.stringify(nextCompanies));
+
+        const storedLogs = localStorage.getItem(AUDIT_LOGS_KEY);
+        const parsedLogs = storedLogs ? JSON.parse(storedLogs) : [];
+        const nextLogs = Array.isArray(parsedLogs)
+          ? ([newAuditLog, ...parsedLogs] as AuditLog[])
+          : [newAuditLog];
+        localStorage.setItem(AUDIT_LOGS_KEY, JSON.stringify(nextLogs));
       } catch (error) {
         console.error('Erro ao salvar empresa local', error);
       }
@@ -377,6 +439,7 @@ export default function SignupRegister() {
     setIsNameLocked(false);
     setLastCnpjLookup(null);
     setFormErrors({});
+    navigate('/login');
   };
 
   const renderPaymentDetails = () => {

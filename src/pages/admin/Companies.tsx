@@ -11,23 +11,27 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Search, Filter, MoreHorizontal, Eye, Edit, Trash2, Plus } from 'lucide-react';
+import { Search, Filter, Plus } from 'lucide-react';
 
 // Mock data
 const mockCompanies: Array<{
   id: string;
   name: string;
   document: string;
+  responsible: string;
   email: string;
   phone: string;
   plan: string;
   status: string;
+  address: {
+    state: string;
+    street: string;
+    number: string;
+    neighborhood: string;
+    city: string;
+    country: string;
+    cep: string;
+  };
   createdAt: string;
 }> = [];
 
@@ -57,7 +61,20 @@ export default function Companies() {
       const storedCompanies = localStorage.getItem('adminCompanies');
       const parsedCompanies = storedCompanies ? JSON.parse(storedCompanies) : [];
       if (Array.isArray(parsedCompanies) && parsedCompanies.length > 0) {
-        setCompanies([...parsedCompanies, ...mockCompanies]);
+        const normalizedCompanies = parsedCompanies.map((company) => ({
+          ...company,
+          responsible: company.responsible ?? '',
+          address: {
+            state: company.address?.state ?? '',
+            street: company.address?.street ?? '',
+            number: company.address?.number ?? '',
+            neighborhood: company.address?.neighborhood ?? '',
+            city: company.address?.city ?? '',
+            country: company.address?.country ?? '',
+            cep: company.address?.cep ?? '',
+          },
+        }));
+        setCompanies([...normalizedCompanies, ...mockCompanies]);
       }
     } catch (error) {
       console.error('Erro ao carregar empresas locais', error);
@@ -67,8 +84,10 @@ export default function Companies() {
   const filteredCompanies = companies.filter(
     (company) =>
       company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      company.responsible.toLowerCase().includes(searchTerm.toLowerCase()) ||
       company.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      company.document.includes(searchTerm)
+      company.document.includes(searchTerm) ||
+      company.phone.includes(searchTerm)
   );
 
   return (
@@ -122,12 +141,19 @@ export default function Companies() {
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>CPF/CNPJ</TableHead>
-                <TableHead>E-mail</TableHead>
+                <TableHead>Nome do responsável</TableHead>
                 <TableHead>Telefone</TableHead>
+                <TableHead>E-mail</TableHead>
                 <TableHead>Plano</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Data Criação</TableHead>
-                <TableHead className="w-12"></TableHead>
+                <TableHead>UF</TableHead>
+                <TableHead>Rua</TableHead>
+                <TableHead>Número</TableHead>
+                <TableHead>Bairro</TableHead>
+                <TableHead>Cidade</TableHead>
+                <TableHead>País</TableHead>
+                <TableHead>CEP</TableHead>
+                <TableHead>Data de criação</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -135,8 +161,9 @@ export default function Companies() {
                 <TableRow key={company.id} className="table-row-hover">
                   <TableCell className="font-medium">{company.name}</TableCell>
                   <TableCell className="font-mono text-sm">{company.document}</TableCell>
-                  <TableCell>{company.email}</TableCell>
+                  <TableCell>{company.responsible}</TableCell>
                   <TableCell>{company.phone}</TableCell>
+                  <TableCell>{company.email}</TableCell>
                   <TableCell>
                     <Badge variant="secondary">{planLabels[company.plan]}</Badge>
                   </TableCell>
@@ -154,31 +181,22 @@ export default function Companies() {
                       {statusLabels[company.status]}
                     </Badge>
                   </TableCell>
+                  <TableCell>{company.address.state}</TableCell>
+                  <TableCell>{company.address.street}</TableCell>
+                  <TableCell>{company.address.number}</TableCell>
+                  <TableCell>{company.address.neighborhood}</TableCell>
+                  <TableCell>{company.address.city}</TableCell>
+                  <TableCell>{company.address.country}</TableCell>
+                  <TableCell className="font-mono text-sm">{company.address.cep}</TableCell>
                   <TableCell className="text-muted-foreground">
-                    {new Date(company.createdAt).toLocaleDateString('pt-BR')}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Eye className="mr-2 h-4 w-4" />
-                          Visualizar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Excluir
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    {new Date(company.createdAt).toLocaleString('pt-BR', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                    })}
                   </TableCell>
                 </TableRow>
               ))}
