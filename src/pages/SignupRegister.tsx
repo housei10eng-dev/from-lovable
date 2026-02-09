@@ -354,12 +354,12 @@ export default function SignupRegister() {
           tenant_id: tenantId,
           name: result.data.name,
           document: result.data.document,
-          responsible: result.data.responsible,
           email: result.data.email,
           phone: result.data.phone,
           plan: planFromParams,
           status: 'pending',
           owner_id: userId,
+          responsible: result.data.responsible,
           address_state: result.data.address.state,
           address_street: result.data.address.street,
           address_number: result.data.address.number,
@@ -367,7 +367,7 @@ export default function SignupRegister() {
           address_city: result.data.address.city,
           address_country: result.data.address.country,
           address_cep: result.data.address.cep,
-        })
+        } as any)
         .select('id')
         .single();
 
