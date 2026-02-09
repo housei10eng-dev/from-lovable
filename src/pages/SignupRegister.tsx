@@ -84,6 +84,7 @@ export default function SignupRegister() {
   const [lastCnpjLookup, setLastCnpjLookup] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     document: '',
@@ -291,6 +292,9 @@ export default function SignupRegister() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSubmitting) {
+      return;
+    }
 
     const result = signupRegisterSchema.safeParse(formData);
     if (!result.success) {
@@ -318,6 +322,7 @@ export default function SignupRegister() {
     const now = new Date();
 
     try {
+      setIsSubmitting(true);
       const { data: signupData, error: signupError } = await supabase.auth.signUp({
         email: result.data.email,
         password: result.data.password,
@@ -449,14 +454,17 @@ export default function SignupRegister() {
       navigate('/login');
     } catch (error) {
       console.error('Erro ao cadastrar empresa', error);
+      const errorMessage = error instanceof Error ? error.message : '';
       toast({
         title: 'Erro ao cadastrar',
         description:
-          error instanceof Error
-            ? error.message
-            : 'Não foi possível concluir o cadastro. Tente novamente.',
+          errorMessage.includes('only request this after')
+            ? 'Aguarde alguns segundos e tente novamente.'
+            : errorMessage || 'Não foi possível concluir o cadastro. Tente novamente.',
         variant: 'destructive',
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -942,7 +950,9 @@ export default function SignupRegister() {
               </div>
 
               <div className="flex justify-end">
-                <Button type="submit">Confirmar Pagamento</Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? 'Enviando...' : 'Confirmar Pagamento'}
+                </Button>
               </div>
             </form>
           </CardContent>
