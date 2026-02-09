@@ -9,8 +9,9 @@ export default function Login() {
 
   useEffect(() => {
     if (!isLoading && user) {
+      const isMasterUser = user.email?.toLowerCase() === 'master@demo.com';
       // Redirect based on user role
-      if (isAdmin) {
+      if (isAdmin || isMasterUser) {
         navigate('/admin');
       } else if (isTenant) {
         navigate('/crm');
