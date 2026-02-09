@@ -365,7 +365,7 @@ export default function SignupRegister() {
           document: result.data.document,
           email: result.data.email,
           phone: result.data.phone,
-          plan: planFromParams,
+          plan: (PLAN_TO_DB[planFromParams] || 'starter') as any,
           status: 'pending',
           owner_id: userId,
           responsible: result.data.responsible,
