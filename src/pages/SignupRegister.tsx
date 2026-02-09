@@ -338,7 +338,7 @@ export default function SignupRegister() {
         throw signupError;
       }
 
-      const userId = signupData.user?.id;
+      const userId = signupData.user?.id ?? signupData.session?.user?.id;
       if (!userId) {
         throw new Error('Não foi possível criar o usuário.');
       }
@@ -454,7 +454,12 @@ export default function SignupRegister() {
       navigate('/login');
     } catch (error) {
       console.error('Erro ao cadastrar empresa', error);
-      const errorMessage = error instanceof Error ? error.message : '';
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'object' && error !== null && 'message' in error
+            ? String((error as { message?: unknown }).message)
+            : '';
       toast({
         title: 'Erro ao cadastrar',
         description:
