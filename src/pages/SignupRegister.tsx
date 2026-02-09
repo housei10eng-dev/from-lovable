@@ -39,30 +39,16 @@ const BILLING_LABELS: Record<string, string> = {
   annual: 'Anual',
 };
 
-const LOCAL_CLIENTS_KEY = 'localClients';
+const ADMIN_COMPANIES_KEY = 'adminCompanies';
 
-type LocalClient = {
+type AdminCompany = {
   id: string;
   name: string;
   email: string;
   phone: string;
   document: string;
-  responsible: string;
-  planType: 'monthly' | 'annual';
-  plan: 'Pro' | 'Business' | 'Enterprise';
-  commercialStatus: 'pending';
-  paymentPreference: 'CARTAO' | 'PIX' | 'BOLETO';
-  address: {
-    state: string;
-    street: string;
-    number: string;
-    neighborhood: string;
-    city: string;
-    country: string;
-    cep: string;
-  };
+  plan: 'pro' | 'business' | 'enterprise';
   status: 'pending';
-  notes: string;
   createdAt: string;
 };
 
@@ -337,7 +323,7 @@ export default function SignupRegister() {
     }
 
     const now = new Date();
-    const newClientData: LocalClient = {
+    const newCompanyData: AdminCompany = {
       id:
         typeof crypto !== 'undefined' && 'randomUUID' in crypto
           ? crypto.randomUUID()
@@ -346,27 +332,21 @@ export default function SignupRegister() {
       email: result.data.email,
       phone: result.data.phone,
       document: result.data.document,
-      responsible: result.data.responsible,
-      planType: billing === 'annual' ? 'annual' : 'monthly',
-      plan: planLabel as LocalClient['plan'],
-      commercialStatus: 'pending',
-      paymentPreference: result.data.paymentPreference,
-      address: { ...result.data.address },
+      plan: planFromParams as AdminCompany['plan'],
       status: 'pending',
-      notes: result.data.promoCode ? `Código promocional: ${result.data.promoCode}` : '',
       createdAt: now.toISOString(),
     };
 
     if (typeof window !== 'undefined') {
       try {
-        const storedClients = localStorage.getItem(LOCAL_CLIENTS_KEY);
-        const parsedClients = storedClients ? JSON.parse(storedClients) : [];
-        const nextClients = Array.isArray(parsedClients)
-          ? ([newClientData, ...parsedClients] as LocalClient[])
-          : [newClientData];
-        localStorage.setItem(LOCAL_CLIENTS_KEY, JSON.stringify(nextClients));
+        const storedCompanies = localStorage.getItem(ADMIN_COMPANIES_KEY);
+        const parsedCompanies = storedCompanies ? JSON.parse(storedCompanies) : [];
+        const nextCompanies = Array.isArray(parsedCompanies)
+          ? ([newCompanyData, ...parsedCompanies] as AdminCompany[])
+          : [newCompanyData];
+        localStorage.setItem(ADMIN_COMPANIES_KEY, JSON.stringify(nextCompanies));
       } catch (error) {
-        console.error('Erro ao salvar cliente local', error);
+        console.error('Erro ao salvar empresa local', error);
       }
     }
 

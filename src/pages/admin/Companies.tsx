@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -76,6 +76,8 @@ const mockCompanies = [
 const planLabels: Record<string, string> = {
   starter: 'Starter',
   professional: 'Professional',
+  pro: 'Pro',
+  business: 'Business',
   enterprise: 'Enterprise',
 };
 
@@ -89,7 +91,20 @@ const statusLabels: Record<string, string> = {
 
 export default function Companies() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [companies] = useState(mockCompanies);
+  const [companies, setCompanies] = useState(mockCompanies);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const storedCompanies = localStorage.getItem('adminCompanies');
+      const parsedCompanies = storedCompanies ? JSON.parse(storedCompanies) : [];
+      if (Array.isArray(parsedCompanies) && parsedCompanies.length > 0) {
+        setCompanies([...parsedCompanies, ...mockCompanies]);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar empresas locais', error);
+    }
+  }, []);
 
   const filteredCompanies = companies.filter(
     (company) =>

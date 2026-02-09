@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const isAdmin = hasAdminAccess(roles);
+  const isAdmin = hasAdminAccess(roles) || user?.email?.toLowerCase() === 'master@demo.com';
   const isTenant = roles.some(r => r.role === 'tenant_admin' || r.role === 'tenant_user');
 
   return (
