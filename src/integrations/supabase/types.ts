@@ -111,6 +111,13 @@ export type Database = {
       }
       companies: {
         Row: {
+          address_cep: string | null
+          address_city: string | null
+          address_country: string | null
+          address_neighborhood: string | null
+          address_number: string | null
+          address_state: string | null
+          address_street: string | null
           collaborators_count: number
           created_at: string
           document: string | null
@@ -121,11 +128,19 @@ export type Database = {
           owner_id: string | null
           phone: string | null
           plan: Database["public"]["Enums"]["subscription_plan"]
+          responsible: string | null
           status: Database["public"]["Enums"]["subscription_status"]
           tenant_id: string
           updated_at: string
         }
         Insert: {
+          address_cep?: string | null
+          address_city?: string | null
+          address_country?: string | null
+          address_neighborhood?: string | null
+          address_number?: string | null
+          address_state?: string | null
+          address_street?: string | null
           collaborators_count?: number
           created_at?: string
           document?: string | null
@@ -136,11 +151,19 @@ export type Database = {
           owner_id?: string | null
           phone?: string | null
           plan?: Database["public"]["Enums"]["subscription_plan"]
+          responsible?: string | null
           status?: Database["public"]["Enums"]["subscription_status"]
           tenant_id?: string
           updated_at?: string
         }
         Update: {
+          address_cep?: string | null
+          address_city?: string | null
+          address_country?: string | null
+          address_neighborhood?: string | null
+          address_number?: string | null
+          address_state?: string | null
+          address_street?: string | null
           collaborators_count?: number
           created_at?: string
           document?: string | null
@@ -151,6 +174,7 @@ export type Database = {
           owner_id?: string | null
           phone?: string | null
           plan?: Database["public"]["Enums"]["subscription_plan"]
+          responsible?: string | null
           status?: Database["public"]["Enums"]["subscription_status"]
           tenant_id?: string
           updated_at?: string

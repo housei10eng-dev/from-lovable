@@ -74,7 +74,7 @@ export default function Companies() {
       }
 
       const normalizedCompanies =
-        data?.map((company) => ({
+        data?.map((company: any) => ({
           id: company.id,
           tenant_id: company.tenant_id,
           name: company.name,
