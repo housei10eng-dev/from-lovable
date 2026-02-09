@@ -134,16 +134,22 @@ export const signupRegisterSchema = z
       .optional()
     ),
     email: z
-    .string()
-    .trim()
-    .min(1, { message: 'E-mail é obrigatório' })
-    .email({ message: 'E-mail inválido' })
-    .max(255, { message: 'E-mail deve ter no máximo 255 caracteres' }),
+      .string()
+      .trim()
+      .min(1, { message: 'E-mail é obrigatório' })
+      .email({ message: 'E-mail inválido' })
+      .max(255, { message: 'E-mail deve ter no máximo 255 caracteres' }),
+    password: z
+      .string()
+      .min(1, { message: 'Senha é obrigatória' }),
+    confirmPassword: z
+      .string()
+      .min(1, { message: 'Confirmação de senha é obrigatória' }),
     phone: z
-    .string()
-    .trim()
-    .min(1, { message: 'Telefone é obrigatório' })
-    .regex(phoneRegex, { message: 'Telefone deve estar no formato (00) 00000-0000' }),
+      .string()
+      .trim()
+      .min(1, { message: 'Telefone é obrigatório' })
+      .regex(phoneRegex, { message: 'Telefone deve estar no formato (00) 00000-0000' }),
     paymentPreference: z.enum(['CARTAO', 'PIX', 'BOLETO'], {
     errorMap: () => ({ message: 'Preferência de pagamento inválida' }),
     }),
@@ -184,6 +190,13 @@ export const signupRegisterSchema = z
     }),
   })
   .superRefine((data, ctx) => {
+    if (data.password !== data.confirmPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['confirmPassword'],
+        message: 'As senhas precisam ser iguais',
+      });
+    }
     if (cnpjRegex.test(data.document)) {
       const normalizedName = data.name.trim().toLowerCase();
       const normalizedResponsible = data.responsible.trim().toLowerCase();
