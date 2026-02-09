@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +34,7 @@ type AuditLog = {
 
 // Mock audit logs
 const mockAuditLogs: AuditLog[] = [];
+const AUDIT_LOGS_KEY = 'adminAuditLogs';
 
 const actionIcons: Record<string, typeof Edit> = {
   CREATE: Plus,
@@ -50,13 +51,40 @@ const actionColors: Record<string, string> = {
 export default function Audit() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(mockAuditLogs);
 
-  const filteredLogs = mockAuditLogs.filter(
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const storedLogs = localStorage.getItem(AUDIT_LOGS_KEY);
+      const parsedLogs = storedLogs ? JSON.parse(storedLogs) : [];
+      if (Array.isArray(parsedLogs) && parsedLogs.length > 0) {
+        setAuditLogs([...parsedLogs, ...mockAuditLogs]);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar logs de auditoria', error);
+    }
+  }, []);
+
+  const filteredLogs = auditLogs.filter(
     (log) =>
       log.userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.entityType.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.action.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const stats = useMemo(() => {
+    return auditLogs.reduce(
+      (acc, log) => {
+        acc.total += 1;
+        if (log.action === 'CREATE') acc.create += 1;
+        if (log.action === 'UPDATE') acc.update += 1;
+        if (log.action === 'DELETE') acc.delete += 1;
+        return acc;
+      },
+      { total: 0, create: 0, update: 0, delete: 0 }
+    );
+  }, [auditLogs]);
 
   return (
     <div className="space-y-6">
@@ -78,7 +106,7 @@ export default function Audit() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total de Logs</p>
-                <p className="text-2xl font-bold">0</p>
+                <p className="text-2xl font-bold">{stats.total}</p>
               </div>
             </div>
           </CardContent>
@@ -91,7 +119,7 @@ export default function Audit() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Criações</p>
-                <p className="text-2xl font-bold">0</p>
+                <p className="text-2xl font-bold">{stats.create}</p>
               </div>
             </div>
           </CardContent>
@@ -104,7 +132,7 @@ export default function Audit() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Atualizações</p>
-                <p className="text-2xl font-bold">0</p>
+                <p className="text-2xl font-bold">{stats.update}</p>
               </div>
             </div>
           </CardContent>
@@ -117,7 +145,7 @@ export default function Audit() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Exclusões</p>
-                <p className="text-2xl font-bold">0</p>
+                <p className="text-2xl font-bold">{stats.delete}</p>
               </div>
             </div>
           </CardContent>
